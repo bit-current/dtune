@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  trainer:
+    build: .
+    container_name: trainer
+    volumes:
+      - .:/app
+    environment:
+      - ROLE=trainer
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - WANDB_PROJECT=bittensor-training
+    networks:
+      - bittensor-net
+
+  miner1:
+    build: .
+    container_name: miner1
+    volumes:
+      - .:/app
+    environment:
+      - ROLE=miner
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - WANDB_PROJECT=bittensor-training
+    networks:
+      - bittensor-net
+
+  miner2:
+    build: .
+    container_name: miner2
+    volumes:
+      - .:/app
+    environment:
+      - ROLE=miner
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - WANDB_PROJECT=bittensor-training
+    networks:
+      - bittensor-net
+
+networks:
+  bittensor-net:
+    driver: bridge
