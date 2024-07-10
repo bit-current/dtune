@@ -29,7 +29,7 @@ class HFManager:
         averaged_model_repo_local=None,
         averaged_miner_assignment_repo_id = None,
         averaged_miner_assignment_repo_local = None,
-        device="cuda"
+        device="cuda" if torch.cuda.is_available() else "cpu"
     ):
     
         # Initializes the HFManager with the necessary repository and authentication details.
@@ -246,7 +246,7 @@ class HFManager:
         try:
             model_path = os.path.join(self.averaged_model_repo_local, model_file_name)
             if os.path.exists(model_path):
-                new_state_dict = torch.load(model_path)
+                new_state_dict = torch.load(model_path, map_location=self.device)
                 temp_state_dict = model.state_dict()
                 temp_state_dict.update(new_state_dict)
                 # for name, param in model.named_parameters():
