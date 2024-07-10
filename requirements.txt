@@ -10,6 +10,7 @@ python-dotenv
 psutil
 pynvml
 huggingface_hub
+expecttest
 wandb
 peft
 bitsandbytes

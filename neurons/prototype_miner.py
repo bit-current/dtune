@@ -1,31 +1,31 @@
-from bittensor import logging
+
+import os
+import math
+import wandb
 import torch
+import random
+import numpy as np
+import time 
+import bitsandbytes
+from bittensor import logging
+from copy import deepcopy
+from tqdm import tqdm
+from transformers import (
+    DataCollatorForLanguageModeling,
+    BitsAndBytesConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    AdamW) 
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from peft import LoraConfig, get_peft_model
-from peft import prepare_model_for_kbit_training
-import bitsandbytes
-import time 
-from tqdm import tqdm
-from transformers import DataCollatorForLanguageModeling
-from transformers import BitsAndBytesConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers import AdamW 
 from datasets import load_dataset
+from torch.utils.data.distributed import DistributedSampler
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from hivetrain.btt_connector import BittensorNetwork
 from hivetrain.chain_manager import ChainMultiAddressStore
 from hivetrain.config import Configurator
 from hivetrain.dataset import SubsetFineWebEdu2Loader
 from hivetrain.hf_manager import HFManager
-import os
-import math
-import wandb
-from copy import deepcopy
-
-import random
-import numpy as np
-
 
 
 def set_seed(seed):
@@ -38,175 +38,224 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-# Set seed for reproducibility
-
-apply_lora = True
-
-logging.enable_debug()
-print("Starting !")
-
-# Initialize Weights & Biases
-# uncomment here and add your profile on wandb
-wandb.init(project="distributed-training-v2-10-2-1", entity="alizawahry1", name=f"miner-{str(time.time())}")
-
-def flatten_list(nested_list):
-    """Flatten a nested list."""
-    if nested_list and isinstance(nested_list[0], list):
-        # Assumes only one level of nesting
-        return [item for sublist in nested_list for item in sublist]
-    return nested_list
 
 
-args = Configurator.combine_configs()
-
-## Chain communication setup
-BittensorNetwork.initialize(args)
-my_hotkey = BittensorNetwork.wallet.hotkey.ss58_address
-my_uid = BittensorNetwork.metagraph.hotkeys.index(my_hotkey)
-set_seed(my_uid)
-
-address_store = ChainMultiAddressStore(
-    BittensorNetwork.subtensor, args.netuid, BittensorNetwork.wallet
-)
-
-#TODO add a while loop here to raise errors if failed to set or retry till success
-current_address_in_store = address_store.retrieve_hf_repo(my_hotkey)
-print(f"Current value in store: {current_address_in_store}")
-if current_address_in_store != args.storage.gradient_repo:
-    print(f"Storing new value: {args.storage.gradient_repo}")
-    address_store.store_hf_repo(args.storage.gradient_repo)
-    # FIXME return status and raise error/issue if failed
-
-# Loading model =========================================================================
-
-batch_size = args.miner.batch_size
-num_epochs = args.miner.epochs  # Set to a more reasonable value
-learning_rate = args.miner.learning_rate
-send_interval = 30*60#args.storage.send_interval  # Every 60 seconds
+class Trainer:
+    def __init__(self, args):
+        self.args = args
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.setup_wandb()
+        self.setup_bittensor()
+        self.setup_model_and_tokenizer()
+        self.setup_data_loader()
+        self.setup_optimizer()
+        self.hf_manager = HFManager(
+            gradient_repo_id=args.storage.gradient_repo,
+            averaged_model_repo_id=args.storage.averaged_model_repo_id,
+            # gradient_repo_local=args.storage.gradient_repo_local,
+            # averaged_model_repo_local=args.storage.averaged_model_repo_local
+        )
+        self.last_pull_time = 0
+        self.last_check_time = 0
+        self.last_send_time = time.time()
 
 
-quantization_config = None
-model_name = "Qwen/Qwen2-1.5B"
-model_cache_dir = './model_cache'  # Specify a local cache directory
-os.makedirs(model_cache_dir, exist_ok=True)
-
-model = AutoModelForCausalLM.from_pretrained(model_name, quantization_config=quantization_config, cache_dir=model_cache_dir)
-
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-tokenizer.pad_token = tokenizer.eos_token
-
-if apply_lora:
-    config = LoraConfig(
-        use_dora=True,
-        r=32,
-        lora_alpha=8,
-        target_modules="all-linear",
-        lora_dropout=0.1,
-    )
-    model = get_peft_model(model, config)
-
-loader = SubsetFineWebEdu2Loader(
-    batch_size=batch_size,
-    sequence_length=args.model.sequence_length,
-    num_pages=100,
-    tokenizer=tokenizer,
-)
-
-# Set up optimizer
-optimizer = AdamW(model.parameters(), lr=learning_rate)
-
-# Training loop
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-model.to(device)
-
-def size_gradients(model):
-    grad_sizes = {name: param.grad.numel() * param.grad.element_size() / (1024 * 1024) for name, param in model.named_parameters() if param.requires_grad and param.grad is not None}
-    total_size = sum(grad_sizes.values())
-    print(f"Total gradient size: {total_size:.2f} MB")
-    return grad_sizes
-
-## Training loop ==============================================================================================================
-
-last_pull_time = 0
-last_check_time = 0
-last_send_time = time.time()
-
-hf_manager = HFManager( gradient_repo_id=args.storage.gradient_repo, averaged_model_repo_id=args.storage.averaged_model_repo_id,
-gradient_repo_local=args.storage.gradient_repo_local ,averaged_model_repo_local=args.storage.averaged_model_repo_local  )
-
-for epoch in range(num_epochs):
-    model.train()
-    train_loss = 0
-    total_loss = 0
-    total_examples = 0
+    def setup_wandb(self):
+        """
+        Initializes and configures a Weights & Biases (wandb) logging session for tracking and visualizing 
+        the model training process. 
+        """
+        wandb.init(
+            project="distributed-training-v2-10-2-1", 
+            entity="alizawahry1", 
+            name=f"miner-{str(time.time())}")
     
-    for batch_idx, batch in tqdm(enumerate(loader)):
-
-        ## FIXME separate send_interval from last_pull_time? 
-        if time.time() - last_check_time >= send_interval:
-            if hf_manager.check_for_new_submissions(hf_manager.averaged_model_repo_id) or last_check_time == 0:
-                print("Averaged model updated on Hugging Face. Pulling latest model...")
-                print("********Averaged model updated on Hugging Face. Pulling latest model...")
-                hf_manager.pull_latest_model()
-                time.sleep(10) #just to give enough time for pull
-                model = hf_manager.update_model(model)
-                del optimizer
-                optimizer = AdamW(model.parameters(), lr=learning_rate)
-                ##FIXME Save and load model state
-            last_check_time = time.time()
-        
-        if batch_idx == 0:
-            print("Beginning Training")
-        inputs = batch["input_ids"].to(device)
-        labels = batch["labels"].to(device)
-
-        # Ensure inputs and labels are not empty
-        if inputs.size(0) == 0 or inputs.size(0) == 0:
-            continue
-
-        optimizer.zero_grad()
+    def setup_bittensor(self):
+        """
+        Initializes the Bittensor network with provided arguments, sets up the hotkey and unique identifier (UID) 
+        for this instance, and configures the seed based on the UID. It also initializes an address store to manage 
+        multiple addresses on the chain.
+        Attributes:
+            my_hotkey (str): The SS58 address of the wallet's hotkey.
+            my_uid (int): The index of the hotkey in the Bittensor metagraph, representing this node's unique identifier.
+            address_store (ChainMultiAddressStore): A store for managing chain addresses associated with different network UIDs.
+        The function also calls `update_address_store` to refresh the address store with the latest data from the network.
+        """
+        BittensorNetwork.initialize(self.args)
+        self.my_hotkey = BittensorNetwork.wallet.hotkey.ss58_address
+        self.my_uid = BittensorNetwork.metagraph.hotkeys.index(self.my_hotkey)
+        set_seed(self.my_uid)
+        self.address_store = ChainMultiAddressStore(
+            BittensorNetwork.subtensor, self.args.netuid, BittensorNetwork.wallet
+        )
         try:
-            outputs = model(inputs, labels=labels)
+            success = self.update_address_store()
+            if success:
+                print("Address store updated successfully")
+        except RuntimeError as e:
+            print(f"Failed to update address store: {str(e)}")
+
+    def update_address_store(self):
+        """
+        Update the address store with the current gradient repository address.
+
+        This method attempts to retrieve the current address from the store and update it
+        if it differs from the current gradient repository address. It includes retry logic
+        to handle transient failures in chain communication.
+        """
+        max_retries = 5
+        retry_delay = 5  # seconds
+        attempt = 0
+        while attempt < max_retries:
+            try:
+                current_address = self.address_store.retrieve_hf_repo(self.my_hotkey)
+                if current_address != self.args.storage.gradient_repo:
+                    print(f"Storing new value: {self.args.storage.gradient_repo}")
+                    success = self.address_store.store_hf_repo(self.args.storage.gradient_repo)
+                    if not success:
+                        raise ConnectionError("Failed to store new address in the chain")
+                return True  # Successfully updated or no update needed
+            except Exception as e:
+                attempt += 1
+                print(f"Attempt {attempt} failed: {str(e)}")
+                if attempt < max_retries:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    raise RuntimeError(f"Failed to update address store after {max_retries} attempts: {str(e)}")
+        return False 
+
+
+    def setup_model_and_tokenizer(self):
+        """
+        Sets up the model and tokenizer for training. Loads the specified transformer model and tokenizer 
+        from the given path, with options for LoRA modifications if specified in the args.
+        The model and tokenizer are configured and moved to the appropriate device (e.g., GPU).
+         """    
+        
+        model_name = "Qwen/Qwen2-1.5B"
+        model_cache_dir = './model_cache'
+        os.makedirs(model_cache_dir, exist_ok=True)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name, cache_dir=model_cache_dir
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        if True:  #apply_lora
+            config = LoraConfig(
+                use_dora=True,
+                r=32,
+                lora_alpha=8,
+                target_modules="all-linear",
+                lora_dropout=0.1,
+            )
+            self.model = get_peft_model(self.model, config)
+        self.model.to(self.device)
+
+    def setup_data_loader(self):
+        self.loader = SubsetFineWebEdu2Loader(
+            batch_size=self.args.miner.batch_size,
+            sequence_length=self.args.model.sequence_length,
+            num_pages=100,
+            tokenizer=self.tokenizer,
+        )
+
+    def setup_optimizer(self):
+        self.optimizer = AdamW(
+            self.model.parameters(), lr=self.args.miner.learning_rate
+        )
+    def train(self):
+        for epoch in range(self.args.miner.epochs):
+            self.train_epoch(epoch)
+            self.loader._fetch_data_to_buffer(100)
+    
+    
+    def train_epoch(self, epoch):
+        self.model.train()
+        total_loss = 0
+        total_examples = 0
+
+        for batch_idx, batch in tqdm(enumerate(self.loader), desc=f"Epoch {epoch+1}"):
+            self.check_for_model_updates()
+            
+            loss = self.train_step(batch)
+            if loss is not None:
+                total_loss += loss.item() * batch["input_ids"].size(0)
+                total_examples += batch["input_ids"].size(0)
+
+            self.send_gradients_if_needed(batch_idx, epoch, total_loss, total_examples)
+
+        avg_loss = total_loss / total_examples
+        print(f"Epoch {epoch+1} completed. Loss: {avg_loss:.4f}")
+
+    
+    def check_for_model_updates(self):
+        if time.time() - self.last_check_time >= self.args.storage.send_interval:
+            if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_model_repo_id) or self.last_check_time == 0:
+                print("Averaged model updated on Hugging Face. Pulling latest model...")
+                self.hf_manager.pull_latest_model()
+                time.sleep(10)
+                self.model = self.hf_manager.update_model(self.model)
+                self.setup_optimizer()
+            self.last_check_time = time.time()
+
+    def train_step(self, batch):
+        inputs = batch["input_ids"].to(self.device)
+        labels = batch["labels"].to(self.device)
+
+        if inputs.size(0) == 0 or labels.size(0) == 0:
+            return None
+
+        self.optimizer.zero_grad()
+        try:
+            outputs = self.model(inputs, labels=labels)
+            loss = outputs.loss
+            loss.backward()
+            self.optimizer.step()
+            return loss
         except Exception as e:
             logging.warning(f"Forward pass failed: {e}")
-            continue
-        loss = outputs.loss
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.item()
-        total_loss += loss.item() * inputs.size(0)
-        total_examples += inputs.size(0)
+            return None
 
-        if time.time() - last_send_time >= send_interval:
+    def send_gradients_if_needed(self, batch_idx, epoch, total_loss, total_examples):
+        if time.time() - self.last_send_time >= self.args.storage.send_interval:
             average_loss = total_loss / total_examples
             perplexity = math.exp(average_loss)
-            print(
-                f"Epoch: {epoch}, Examples: {total_examples}, Loss: {average_loss:.4f}, Perplexity: {perplexity:.4f}"
-            )
+            print(f"Epoch: {epoch}, Examples: {total_examples}, Loss: {average_loss:.4f}, Perplexity: {perplexity:.4f}")
+            
             wandb.log({
-                    "step":batch_idx*(epoch+1),
-                    "batch":batch_idx,
-                    "epoch": epoch,
-                    "training_loss": average_loss,
-               })
+                "step": batch_idx * (epoch + 1),
+                "batch": batch_idx,
+                "epoch": epoch,
+                "training_loss": average_loss,
+            })
+
             try:
-                print(f"Attempting to send gradients")
-                # Periodically save gradients
-                delta_weights = {}
-                for key in model.state_dict().keys():
-                    if 'lora' in key:
-                        delta_weights[key] = model.state_dict()[key].to("cpu")# - base_model.state_dict()[key].to("cpu")
-                model_gradients_path = os.path.join(
-                    hf_manager.get_local_gradient_directory(), "gradients.pt"
-                )
-                torch.save(delta_weights, model_gradients_path)
-                hf_manager.push_gradients("gradients.pt")
+                self.send_gradients()
             except Exception as e:
                 logging.warning(f"Sending gradients failed: {e}")
-                continue
-            last_send_time = time.time()
 
-    train_loss /= total_examples
-    print(f"Epoch {epoch+1} completed. Loss: {train_loss:.2f}")
-    loader._fetch_data_to_buffer(100)
+            self.last_send_time = time.time()
 
+    def send_gradients(self):
+        print("Attempting to send gradients")
+        delta_weights = {
+            key: value.to("cpu")
+            for key, value in self.model.state_dict().items()
+            if 'lora' in key
+        }
+        model_gradients_path = os.path.join(
+            self.hf_manager.get_local_gradient_directory(), "gradients.pt"
+        )
+        torch.save(delta_weights, model_gradients_path)
+        self.hf_manager.push_gradients("gradients.pt")
+
+def main():
+    logging.enable_debug()
+    print("Starting!")
+    args = Configurator.combine_configs()
+    trainer = Trainer(args)
+    trainer.train()
+
+if __name__ == "__main__":
+    main()
