@@ -42,7 +42,7 @@ The averager plays a pivotal role in integrating validated updates from validato
 
 **Note**: Efforts are underway to decentralize the averaging process to enhance validation procedures. The averager's script is available for public review.
 
-## Optimal Training Practices
+## How to Perform Well (More Rewards)
 - **Train Harder**: Increase resources by utilizing additional GPUs and devices.
 - **Train Smarter**: Employ sophisticated algorithms and adapt initial scripts to yield improved performance outcomes.
 
