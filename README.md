@@ -2,7 +2,7 @@
 **Hivetrain** is dedicated to developing a decentralized model training platform on the Bittensor network. Our goal is to establish a scalable system that fosters collaboration among AI experts to build advanced multimodal models. We prioritize rewarding contributors for both their computational contributions and their innovations in model advancement.
 
 ## Distributed Continual Pretraining Subnet
-**Distributed Continual Pretraining** represents a cutting-edge approach within our network aimed at perpetual training and enhancement of foundational models. This initiative seeks to democratize access to large-scale open-source language models, challenging the existing monopolies held by proprietary entities.
+**Distributed Continual Pretraining** represents a cutting-edge approach within our network aimed at perpetual training and finetuning of foundational models. This initiative seeks to democratize access to large-scale open-source language models, challenging the existing monopolies held by proprietary entities.
 
 ## Project Goals
 Our chief aim is to facilitate the training of a leading open-source large language model (LLM) through distributed methodologies. We are committed to democratizing access to training at the trillion-parameter scale, engaging a wide community of contributors.
