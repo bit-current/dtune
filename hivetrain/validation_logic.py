@@ -1,3 +1,4 @@
+import hashlib
 import os
 import random
 import torch
@@ -49,6 +50,7 @@ class ModelValidator:
         self.base_loss, self.base_perplexity = self.evaluate_model()
         self.scores = {}
         self.normalized_scores = {}
+        self.gradient_hashes = {}
 
 
     def update_model_weights(self, weights):
@@ -82,113 +84,135 @@ class ModelValidator:
         print(f"Average Loss for evaluated model: {average_loss}")
         
         return average_loss, perplexity
+    
+    def fetch_and_process_assignments(self):
+        while True:
+            if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_miner_assignment_repo_id):
+                print("Found new assignments")
+                self.hf_manager.pull_latest_assignments()
+                return torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "validator_miner_assignment.pt"))
+            else:
+                print("No new assignments found. Sleeping")
+                time.sleep(60)
+
+    def get_selected_miner_uids(self, assignments):
+        uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
+        my_hotkey = self.bittensor_network.wallet.hotkey.ss58_address
+        my_uid = self.bittensor_network.metagraph.hotkeys.index(my_hotkey)
+        
+        try:
+            selected_miner_uids = list(set(assignments[my_uid]))
+        except KeyError:
+            print("Validator not recognized in New Assignment")
+            if len(assignments.keys()) > 0:
+                random_key = random.choice(list(assignments.keys()))
+                selected_miner_uids = list(set(assignments[random_key][:5]))
+                print(f"Copying assignments of UID:{random_key}")
+            else:
+                validator_uids = self.bittensor_network.get_validator_uids() 
+                miner_uids = [miner for miner in range(len(self.bittensor_network.metagraph.hotkeys)) if miner not in validator_uids]
+                miner_vali_ratio = 5
+                selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
+                print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
+        
+        return selected_miner_uids
+
+    def check_and_update_model(self):
+        if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_model_repo_id):
+            print("Averaged model updated on Hugging Face. Pulling latest model...")
+            self.hf_manager.pull_latest_model()
+            time.sleep(10)  # Give enough time for pull
+            self.model = self.hf_manager.update_model(self.model)
+            self.model = self.model.to(self.device)
+            self.optimizer = AdamW(self.model.parameters(), lr=5e-5)
+            print("Evaluating new averager model")
+            self.base_loss, self.base_perplexity = self.evaluate_model()
+            self.base_weights = {name: param.clone() for name, param in self.model.named_parameters()}
+            self.last_pull_time = time.time()
+
+        self.original_state_dict = deepcopy(self.model.state_dict())
 
     def validate_and_score(self):
         print("Receiving Gradients from chain")
         self.bittensor_network.sync(lite=True)
 
+        # Fetch and process assignments
+        assignments = self.fetch_and_process_assignments()
+        selected_miner_uids = self.get_selected_miner_uids(assignments)
+
+        # Check for model updates
+        self.check_and_update_model()
+
+        # Create a dictionary to store UID:path mappings
+        uid_gradient_paths = {}
+
+        # Fetch all gradients at once
+        print("Fetching all gradients...")
+        for miner_id in selected_miner_uids:
+            miner_hotkey = self.bittensor_network.metagraph.hotkeys[miner_id]
+            hf_repo = self.chain_manager.retrieve_hf_repo(miner_hotkey)
+            gradient_path = self.hf_manager.receive_gradients(hf_repo, path_only=True)
+            with open(gradient_path, "rb") as file:
+                gradient_hash = hashlib.sha256(file.read()).hexdigest()
+
+            try:
+                if gradient_hash == self.gradient_hashes[miner_id]:
+                    print("Skipping UID as no new weights")
+                    continue
+                else:
+                    self.gradient_hashes[miner_id] = gradient_hash
+            except KeyError:
+                self.gradient_hashes[miner_id] = gradient_hash
+
+            uid_gradient_paths[miner_id] = gradient_path
+
+        if len(uid_gradient_paths) == 0:
+            print("Skipping Validation Round. No new weights")
+            return
         
-        #Could synchronize valis well
-        while True:
-            if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_miner_assignment_repo_id):
-                print("Found new assignments")
-                self.hf_manager.pull_latest_assignments()
-                assignment_uids = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "validator_miner_assignment.pt"))
-                uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
-                my_hotkey = self.bittensor_network.wallet.hotkey.ss58_address
-                my_uid = self.bittensor_network.metagraph.hotkeys.index(my_hotkey)
-                try:
-                    selected_miner_uids = list(set(assignment_uids[my_uid]))
-                except KeyError:
-                    print("Validator not recognized in New Assignment")
-                    if len(assignment_uids.keys()) > 0:
-                        random_key = random.choice(list(assignment_uids.keys()))
-                        selected_miner_uids = list(set(assignment_uids[random_key][:5]))
-                        print(f"Copying assignments of UID:{random_key}")
-                    else: ## In case of a new run with no assigned valis
-                        validator_uids = self.bittensor_network.get_validator_uids() 
-                        miner_uids = [miner for miner in range(len(self.bittensor_network.metagraph.hotkeys)) if miner not in validator_uids]
-                        miner_vali_ratio = 5 #to one
-                        selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
-
-                        print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
-                break
-            else:
-                print("No new assignments found. Sleeping")
-                time.sleep(60)
-
-        if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_model_repo_id):
-            print(
-                "Averaged model updated on Hugging Face. Pulling latest model..."
-            )
-            self.hf_manager.pull_latest_model()
-            time.sleep(10)  # Give enough time for pull. If you get an update error, get better internet or increase sleep time
-            self.model = self.hf_manager.update_model(self.model)
-            self.model = self.model.to(self.device)
-            self.optimizer = AdamW(
-                self.model.parameters(), lr=5e-5
-            )  # Reinitialize the optimizer
-            print("Evaluating new averager model")
-            self.base_loss, self.base_perplexity = self.evaluate_model()
-            self.base_weights = {
-                name: param.clone() for name, param in self.model.named_parameters()
-            }
-            self.last_pull_time = time.time()
-
-        self.original_state_dict = deepcopy(self.model.state_dict())
-
         valid_gradients = []
-
         self.best_losses = []
         self.best_perplexities = []
         self.averaging_weights = []
-        print(f"Validating over: {selected_miner_uids}")
-        for miner_id in selected_miner_uids:
-            
-            miner_hotkey = self.bittensor_network.metagraph.hotkeys[miner_id]
-            try:
-                miner_hotkey_2 = uid_to_hotkey[miner_id]
-                if miner_hotkey !=  miner_hotkey_2:
-                    print("Hotkey changed, prior miner deregistered. Skipping.")
-                    continue
-            except KeyError:
-                    print("Hotkey Added before validation round. Skipping.")
-                    continue
 
-            hf_repo = self.chain_manager.retrieve_hf_repo(miner_hotkey)
-            print(f"UID: {miner_id} Repo: {hf_repo} Hotkey:{miner_hotkey}")
-            gradients = self.hf_manager.receive_gradients(hf_repo)
+        print(f"Validating over: {selected_miner_uids}")
+        for miner_id, gradient_path in uid_gradient_paths.items():
+            print(f"Processing UID: {miner_id}")
+            try:
+                gradients = torch.load(gradient_path)
+            except:
+                gradients = None
+            
             if gradients is not None:
-                print(f"Gradients: {miner_id} Exist !")
+                print(f"Gradients for UID {miner_id} exist!")
                 try:
                     self.update_model_weights(gradients)
                 except:
                     print("Improperly Shaped Gradients. Skipping.")
                     continue
+
                 print(f"Evaluating model")
                 loss, perplexity = self.evaluate_model()
                 metrics = {
-                        f"loss_{miner_id}": loss,
-                        f"perplexity_{miner_id}": perplexity
-                    }
+                    f"loss_{miner_id}": loss,
+                    f"perplexity_{miner_id}": perplexity
+                }
                 wandb.log(metrics)
-                
+
                 if loss < self.base_loss or perplexity < self.base_perplexity:
-                    loss_score = max(0, self.base_loss - loss)
                     perplexity_score = max(0, self.base_perplexity - perplexity)
                     valid_gradients.append((miner_id, perplexity_score, gradients))
-                    self.scores[miner_id] = perplexity_score**2 # We should exponentially reward better performing miners
+                    self.scores[miner_id] = perplexity_score**2  # Exponentially reward better performing miners
                     self.best_losses.append(loss)
                     self.best_perplexities.append(perplexity)
                     self.averaging_weights.append(perplexity_score)
                     print(f"Gradients from {miner_id} good to average")
-
                 else:
-                    loss_score = 9999999999
-                    perplexity_score = 0
                     self.scores[miner_id] = 0
                     print(f"Gradients from {miner_id} are invalid. Excluding from updates.")
+
                 self.model.load_state_dict(self.original_state_dict)
+                os.remove(gradient_path)
             else:
                 print(f"No gradients received from {miner_id}")
 
@@ -203,7 +227,6 @@ class ModelValidator:
                 else:
                     accumulated_gradients[name] += grad * ppx_weight
 
-
         # Update the model
         self.update_model_weights(accumulated_gradients)
         print("Evaluating Averaged Loss + Perplexity")
@@ -213,16 +236,6 @@ class ModelValidator:
                 "loss_validator_avg":loss,
                 "ppx_validator_avg":perplexity
             })
-
-        # if loss > self.base_loss:
-        #     if best_
-        #     best_idx = self.best_losses.index(self.base_loss)
-        #     self.update_model_weights(valid_gradients[best_idx][2])            
-        #     print("Averaged not optimal. Uploading best individual model")
-        # else:
-        #     print("Averaged optimal. Uploading.")
-        #     self.base_loss = loss
-        #     self.base_perplexity = perplexity
 
         final_averaged_loss = {
             "loss":loss,
@@ -250,7 +263,7 @@ class ModelValidator:
                 
     def start_periodic_validation(self):
 
-        wandb.init(project="distributed-training-v2-10-2-1",entity="alizawahry1", name=f"validator-{str(time.time())}")
+        wandb.init(project="distributed-training-v4-1-1-1",entity="alizawahry1", name=f"validator-{str(time.time())}")
         while True:
 
             start_time = time.time()            
@@ -263,7 +276,6 @@ class ModelValidator:
             time_to_wait = max(0, self.interval - elapsed_time)
             print(f"One round done sleeping for: {time_to_wait}")
             time.sleep(time_to_wait)
-
 
 class DeltaValidator(ModelValidator):
     def update_model_weights(self, weight_deltas, alpha=5e-4):

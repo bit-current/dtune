@@ -128,6 +128,28 @@ class HFManager:
         finally:
             os.chdir(original_dir)
 
+    def git_push_force(self, repo):
+        """
+        Executes a git push --force command using subprocess.
+        """
+        try:
+            command = ["git", "push", "--force"]
+            process = subprocess.Popen(
+                command,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                cwd=repo.local_dir,
+            )
+            stdout, stderr = process.communicate()
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(process.returncode, command, output=stdout, stderr=stderr)
+            print(f"Force push successful: {stdout}")
+        except subprocess.CalledProcessError as e:
+            print(f"Force push failed: {e.stderr}")
+        except Exception as e:
+            print(f"An error occurred during force push: {str(e)}")
+
 
     def push_gradients(self, files_to_send):
         """
@@ -146,13 +168,12 @@ class HFManager:
             self.gradient_repo.git_commit("Squashed commits - update model gradients")
             
             # Push the changes to the repository
-            self.gradient_repo.git_push()
+            self.git_push_force(self.gradient_repo)
 
             self.api.super_squash_history(repo_id=self.gradient_repo_id)
             
             # Prune unneeded Git LFS objects and pull the squashed version locally
-            self.git_prune_and_refresh(self.gradient_repo_local)  # Clean up unused LFS objects
-            
+            self.git_prune_and_refresh(self.gradient_repo_local)  # Clean up unused LFS objects       
             
         except Exception as e:
             print(f"Failed to push changes: {e}")
@@ -171,7 +192,7 @@ class HFManager:
             # Commit with a unified message
             self.averaged_model_repo.git_commit("Squashed commits - update model gradients")
             
-            self.averaged_model_repo.git_push()
+            self.git_push_force(self.averaged_model_repo)
 
             self.api.super_squash_history(repo_id=self.averaged_model_repo_id)
 
@@ -197,7 +218,7 @@ class HFManager:
             # Commit with a unified message
             self.averaged_miner_assignment_repo.git_commit("Squashed commits - update model gradients")
             
-            self.averaged_miner_assignment_repo.git_push()
+            self.git_push_force(self.averaged_miner_assignment_repo)
 
             self.api.super_squash_history(repo_id=self.averaged_miner_assignment_repo_id)
 
@@ -302,16 +323,21 @@ class HFManager:
                 use_auth_token=self.hf_token,
             )
 
-    def receive_gradients(self, miner_repo_id, weights_file_name="gradients.pt"):
+    def receive_gradients(self, miner_repo_id, weights_file_name="gradients.pt", path_only=False):
         try: #TODO Add some garbage collection.
             # Download the gradients file from Hugging Face Hub
             weights_file_path = hf_hub_download(
                 repo_id=miner_repo_id, filename=weights_file_name, use_auth_token=True
             )
             # Load the gradients directly using torch.load
-            miner_weights = torch.load(weights_file_path, map_location=self.device)
-            os.remove(weights_file_path)
-            return miner_weights
+            
+            if path_only:
+                return weights_file_path
+            else:
+                miner_weights = torch.load(weights_file_path, map_location=self.device)
+                os.remove(weights_file_path)
+                return miner_weights
+        
         except Exception as e:
             logging.debug(f"Error receiving gradients from Hugging Face: {e}")
 

@@ -26,7 +26,7 @@ from torch import nn, optim
 import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
-import wandb 
+import wandb
 from huggingface_hub import HfApi
 
 class Averager:
@@ -53,12 +53,10 @@ class Averager:
         self.validator_hashes = {}
         self.data_loader = data_loader
 
-
-        
         self.base_loss, self.base_perplexity = self.evaluate_model()
 
         # initialize mlflow
-        wandb.init(project="distributed-training-v2-10-2-1",entity="alizawahry1", name=f"averager-{str(time.time())}")
+        wandb.init(project="distributed-training-v4-1-1-1",entity="alizawahry1", name=f"averager-{str(time.time())}")
 
 
     def evaluate_model(self, metric="perplexity"):
@@ -119,13 +117,11 @@ class Averager:
         assignment_path = os.path.join(base_dir, "validator_miner_assignment.pt")
         hotkey_path = os.path.join(base_dir, "uid_hotkey.pt")
         counter_path = os.path.join(base_dir, "counter.pt")
-        
-        
+                
         torch.save(miner_assignments, assignment_path)
         torch.save(uid_to_hotkey, hotkey_path)
         torch.save(self.counter_pushed, counter_path)
         hf_manager.push_miner_assignemnts(["validator_miner_assignment.pt", "uid_hotkey.pt", "counter.pt"])
-
 
     @staticmethod
     def get_total_runs(num_miners, miners_per_validator):
@@ -151,8 +147,11 @@ class Averager:
             current_block = self.bittensor_network.subtensor.block
             
             # Set the fixed number of miners per validator
-            miners_per_validator = 5  # This can be adjusted or made into a class attribute if needed
-            
+            if len(validator_uids)%len(miner_uids) != 0:
+                miners_per_validator = len(validator_uids)//len(miner_uids) +1  # This can be adjusted or made into a class attribute if needed
+            else:
+                miners_per_validator = len(validator_uids)//len(miner_uids)
+
             total_runs = self.get_total_runs(len(miner_uids), miners_per_validator)
             current_run = self.get_current_run(self.counter_pushed, total_runs)
             
@@ -161,6 +160,7 @@ class Averager:
             
             miner_assignments = {vali_uid: [] for vali_uid in validator_uids}
 
+            random.shuffle(miner_uids)
             for i, vali_uid in enumerate(validator_uids):
                 start_index = (i + current_run * len(validator_uids)) % len(miner_uids)
                 assigned_miners = [miner_uids[(start_index + j) % len(miner_uids)] for j in range(miners_per_validator)]
@@ -179,9 +179,7 @@ class Averager:
         except Exception as e:
             print(f"An error occurred while assigning miners to validators deterministically: {str(e)}")
             return False
-        
-      
- 
+
     
     def receive_weights(
         self, repo_id="your_username/your_repo_name", gradient_file_name="gradients.pt", loss_file_name="loss.pt"
@@ -199,8 +197,7 @@ class Averager:
             
             with open(gradient_file_path, "rb") as file:
                 gradient_hash = hashlib.sha256(file.read()).hexdigest()
-
-            
+    
             # Load the gradients directly using torch.load
             aggregated_gradients = torch.load(gradient_file_path)
             loss = torch.load(loss_file_path)
@@ -369,7 +366,6 @@ class Averager:
                 print("Logging Results")
                 wandb.log({
                     "pushes": self.counter_pushed,
-                    "model_hash": model_hash(self.model.state_dict()),
                     "averaged_model_loss":averaged_loss,
                     "averaged_model_perplexity":averaged_perplexity
                 })
@@ -382,17 +378,13 @@ class Averager:
                     print("Miner assignments failed")
             except Exception as e:
                 print(f"Miner assignments failed: {e}")
-
             
             self.hf_manager.push_averaged_model("averaged_model.pt")
             self.hf_manager.clear_hf_cache()
             print("Averaging round Done.")
 
-            
             #self.push_to_hf_hub(commit_message="Updated model with new gradients")
             elapsed_time = time.time() - start_time
             time_to_wait = max(0, t - elapsed_time)
             print(f"Sleeping for {time_to_wait}")
             time.sleep(time_to_wait)
-
-

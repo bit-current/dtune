@@ -34,13 +34,18 @@ for idx, wallet_data in enumerate(wallets):
             prompt=False,
         )
     else:
-        if idx != 89:
+        if idx < 90:
             continue
         
-        subtensor.transfer(
+        success = subtensor.transfer(
             wallet=wallet,
             dest=receive_ss58_address,
             amount=10.0,
             wait_for_inclusion=True,
+            wait_for_finalization=True,
             prompt=False,
         )   
+        if success:
+            print("Success")
+        else:
+            print("Failed")

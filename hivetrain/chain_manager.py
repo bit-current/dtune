@@ -10,7 +10,6 @@ import multiprocessing
 from typing import Optional, Any
 from bittensor.btlogging import logging
 
-
 def _wrapped_func(func: functools.partial, queue: multiprocessing.Queue):
     try:
         result = func()

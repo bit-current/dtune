@@ -15,7 +15,8 @@ def add_meta_miner_args(parser):
     parser.add_argument("--device", type=str, default="cuda", help="Device to use for inference/training")
 
     ## Validator + Averager communication
-    parser.add_argument("--storage.send_interval", type=int, default=600, help="Interval to send to validator in seconds")
+    parser.add_argument("--storage.receive_interval", type=int, default=5*60, help="Interval to receive from averager in seconds")
+    parser.add_argument("--storage.send_interval", type=int, default=10*60, help="Interval to send to validator in seconds")
     parser.add_argument('--storage.gradient_repo', type=str, help='Local path to gradients/weight deltas')
     parser.add_argument('--storage.averaged_model_repo_id', type=str, help='Huggingface repo for storing final model')
     parser.add_argument('--storage.averaged_model_repo_local', type=str, help='Local clone repo of averaged model')

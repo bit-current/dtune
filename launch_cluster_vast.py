@@ -51,7 +51,7 @@ def main():
 
     args = parser.parse_args()
 
-    search_command = "vastai search offers 'reliability > 0.99 num_gpus==1 dph<=0.99 gpu_ram>=40 duration>=2 inet_up_cost<0.005 inet_down_cost<0.005 inet_down>=1000' -o 'dph-'"
+    search_command = "vastai search offers 'reliability > 0.99 num_gpus==1 dph<=0.99 gpu_ram>=40 duration>=2 inet_up_cost<0.005 inet_down_cost<0.005 inet_down>=1000' -o 'dph-' -t 'bid'"
 
     # Load wallet info from file
     wallet_info_list = load_wallet_info(args.wallet_info_file)

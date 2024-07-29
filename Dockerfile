@@ -26,7 +26,7 @@ WORKDIR /RDbara
 # Copy application code
 COPY . .
 
-RUN git checkout hierarchical_validator_arch
+#RUN git checkout hierarchical_validator_arch
 
 # Final stage: contains the application code and the script
 FROM python:3.10.12 AS final

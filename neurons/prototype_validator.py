@@ -2,7 +2,7 @@ import os
 import torch
 import time
 import wandb  
-from bittensor import logging
+#from bittensor import logging
 from hivetrain.btt_connector import BittensorNetwork
 from hivetrain.config import Configurator
 from hivetrain.dataset import SubsetFineWebEdu2Loader
@@ -25,8 +25,8 @@ class Validation:
         self.setup_validator()
 
     def setup_logging(self):
-        logging.basicConfig(level=logging.INFO)
-        logging.info("Setting up logging...")
+        #logging.basicConfig(level=logging.INFO)
+        print("Setting up logging...")
     
     def setup_bittensor(self):
         """
@@ -86,7 +86,7 @@ class Validation:
         return False
 
     def setup_model_and_tokenizer(self):
-        logging.info("Setting up model and tokenizer...")
+        print("Setting up model and tokenizer...")
         model_name = MODEL_NAME
         model_cache_dir = './model_cache'
         os.makedirs(model_cache_dir, exist_ok=True)
@@ -112,7 +112,7 @@ class Validation:
         self.model = get_peft_model(self.model, config)
     
     def setup_data_loader(self):
-        logging.info("Setting up data loader...")
+        print("Setting up data loader...")
         self.loader = SubsetFineWebEdu2Loader(
             batch_size=self.args.miner.batch_size,
             sequence_length=self.args.model.sequence_length,
@@ -121,7 +121,7 @@ class Validation:
         )
     
     def setup_hf_manager(self):
-        logging.info("Setting up HuggingFace manager...")
+        print("Setting up HuggingFace manager...")
         self.hf_manager = HFManager(
             gradient_repo_id=self.args.storage.gradient_repo,
             averaged_model_repo_id=self.args.storage.averaged_model_repo_id,
@@ -132,22 +132,22 @@ class Validation:
         )
 
     def setup_validator(self):
-        logging.info("Setting up model validator...")
+        print("Setting up model validator...")
         self.validator = ModelValidator(
             device="cuda" if torch.cuda.is_available() else "cpu",
             model=self.model,
             tokenizer=self.tokenizer,
             optimizer=self.optimizer,
-            check_update_interval=60*60,
+            check_update_interval=120*60,
             bittensor_network=BittensorNetwork,
             chain_manager=self.address_store,
             hf_manager=self.hf_manager,
-            interval=60*60,
+            interval=20*60,
             data_loader=self.loader
         )
 
     def start_validation(self):
-        logging.info("Starting periodic validation...")
+        print("Starting periodic validation...")
         self.validator.start_periodic_validation()
 
 def main():

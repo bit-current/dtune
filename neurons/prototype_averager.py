@@ -12,7 +12,6 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from transformers import DataCollatorForLanguageModeling
 
-
 args = Configurator.combine_configs()
 
 batch_size = args.miner.batch_size
@@ -80,4 +79,4 @@ averager = Averager(
         data_loader=data_loader
     )
 
-averager.run_periodic_averaging(60*60)
+averager.run_periodic_averaging(25*60)

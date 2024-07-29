@@ -66,7 +66,7 @@ class Miner:
         the model training process.
         """
         wandb.init(
-            project="distributed-training-v2-10-2-1",
+            project="distributed-training-v4-1-1-1",
             entity="alizawahry1",
             name=f"miner-{str(time.time())}",
         )
@@ -192,7 +192,7 @@ class Miner:
         print(f"Epoch {epoch+1} completed. Loss: {avg_loss:.4f}")
 
     def check_for_model_updates(self):
-        if time.time() - self.last_check_time >= self.args.storage.send_interval:
+        if time.time() - self.last_check_time >= self.args.storage.receive_interval:
             if (
                 self.hf_manager.check_for_new_submissions(
                     self.hf_manager.averaged_model_repo_id

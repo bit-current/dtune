@@ -3,19 +3,25 @@ from substrateinterface import Keypair
 from hivetrain.btt_connector import BittensorNetwork
 from hivetrain.config import Configurator
 import time
+import bittensor as bt
 
 # Load the JSON file
 with open('wallet_mnemonics.json') as file:
     wallets = json.load(file)
+    breakpoint()
+
+# Get the TAO in 5HgUf8QGQikfR2pQLXgYJNgAhvp1yy5KkS345KwHZQqMjH2r 
 
 args = Configurator.combine_configs()
 BittensorNetwork.initialize(args, ignore_regs=True)
 subtensor = BittensorNetwork.subtensor
 wallet = BittensorNetwork.wallet
+temp_wallet = bt.wallet()
 metagraph = BittensorNetwork.metagraph
 
 register = False
 stake_validator = True
+show_balance = True
 
 for idx, wallet_data in enumerate(wallets):
     # Get the mnemonic for the cold key
@@ -27,13 +33,23 @@ for idx, wallet_data in enumerate(wallets):
     
     # Get the SS58 address for the cold key
     receive_ss58_address = coldkey_keypair.ss58_address
-    wallet.set_coldkey(coldkey_keypair, encrypt=False, overwrite=True)
-    wallet.set_coldkeypub(coldkey_keypair, overwrite=True)
+    temp_wallet.set_coldkey(coldkey_keypair, encrypt=False, overwrite=True)
+    temp_wallet.set_coldkeypub(coldkey_keypair, overwrite=True)
     
     hotkey_mnemonic = wallet_data['hotkey_mnemonic']
     hotkey_keypair = Keypair.create_from_mnemonic(hotkey_mnemonic)
     hotkey_address = hotkey_keypair.ss58_address
-    wallet.set_hotkey(hotkey_keypair, encrypt=False, overwrite=True)
+    temp_wallet.set_hotkey(hotkey_keypair, encrypt=False, overwrite=True)
+
+    if show_balance:
+        if idx < 90 or idx > 90:
+            continue
+
+        cold_balance = subtensor.get_balance(receive_ss58_address)
+        hot_balance = subtensor.get_total_stake_for_coldkey(hotkey_address)
+
+        print(f"Cold Balance for test-wallet-{idx+1}: {cold_balance}")
+        print(f"Hot Balance for test-wallet-{idx+1}: {cold_balance}")
 
     if register:        
         if idx < 89:
@@ -43,7 +59,7 @@ for idx, wallet_data in enumerate(wallets):
             print("Already Registered")
             continue
         subtensor.burned_register(
-            wallet=wallet, netuid=args.netuid, prompt=False
+            wallet=temp_wallet, netuid=args.netuid, prompt=False
         )
         time.sleep(10)
 
@@ -55,11 +71,16 @@ for idx, wallet_data in enumerate(wallets):
         #     print("Failed to nominate delegate")
         #     continue
         print(f"Staking to test-wallet-{idx+1}")
-        subtensor.add_stake(
-            wallet=wallet,
+        success = subtensor.add_stake(
+            wallet=temp_wallet,
             hotkey_ss58=hotkey_address,
             amount=10.0,
             wait_for_inclusion=True,
+            wait_for_finalization=True,
             prompt=False,
         )
+        if success:
+            print(f"Success")
+        else:
+            print("Failed")
 

@@ -9,16 +9,21 @@ from hivetrain.config import Configurator
 def registration_process(subtensor, wallet):
     success = False
     while not success:
-        success = subtensor.register_subnetwork(
-            wallet,
-            wait_for_inclusion=True,
-            wait_for_finalization=True
-        )
+        try:
+            success = subtensor.register_subnetwork(
+                wallet,
+                wait_for_inclusion=True,
+                wait_for_finalization=True
+            )
+        except Exception as e:
+            print(e)
+            success = False
+            time.sleep(10)
         if success:
             print(f"Registration successful for process {multiprocessing.current_process().name}")
         else:
             print(f"Trying again for process {multiprocessing.current_process().name}")
-            #time.sleep(5)
+            time.sleep(0.5)
 
 def main():
     print("Initializing")
@@ -32,13 +37,13 @@ def main():
     print("Initialized")
 
     processes = []
-    num_processes = 7  # You can adjust this number
+    num_processes = 120  # You can adjust this number
 
     for _ in range(num_processes):
         process = multiprocessing.Process(target=registration_process, args=(subtensor, wallet))
         processes.append(process)
         process.start()
-        time.sleep(5)
+        time.sleep(0.1)
 
     for process in processes:
         process.join()
