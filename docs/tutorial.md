@@ -1,6 +1,6 @@
 # DTune Miner + Validator Tutorial: Running Miner, Averager, and Validator
 
-This tutorial will guide you through the process of setting up and running a federated learning system with three main components: miner, averager, and validator. We'll cover two methods of execution: using Docker and running the scripts manually.
+This tutorial will guide you through the process of setting up and running a a node on the dtune subnet. We'll cover two methods of execution: using Docker and running the scripts manually.
 
 ## Prerequisites
 
