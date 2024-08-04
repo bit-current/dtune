@@ -3,7 +3,7 @@ import torch
 import time
 import wandb  
 #from bittensor import logging
-from hivetrain.btt_connector import BittensorNetwork
+from hivetrain.comm_connector import CommuneNetwork
 from hivetrain.config import Configurator
 from hivetrain.dataset import SubsetFineWebEdu2Loader
 from hivetrain.validation_logic import ModelValidator
@@ -36,11 +36,11 @@ class Validation:
         
         The function also calls `update_address_store` to refresh the address store with the latest data from the network.
         """
-        BittensorNetwork.initialize(self.args)
-        self.my_hotkey = BittensorNetwork.wallet.hotkey.ss58_address
-        self.my_uid = BittensorNetwork.metagraph.hotkeys.index(self.my_hotkey)
+        CommuneNetwork.initialize(self.args)
+        self.my_hotkey = CommuneNetwork.my_hotkey
+        self.my_uid = CommuneNetwork.my_uid
         self.address_store = ChainMultiAddressStore(
-            BittensorNetwork.subtensor, self.args.netuid, BittensorNetwork.wallet
+            CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair, self.args.module_name
         )
         try:
             success = self.update_address_store()
@@ -62,7 +62,7 @@ class Validation:
         attempt = 0
         while attempt < max_retries:
             try:
-                current_address = self.address_store.retrieve_hf_repo(self.my_hotkey)
+                current_address = self.address_store.retrieve_hf_repo(self.my_uid)
                 if current_address != self.args.storage.gradient_repo:
                     print(f"Storing new value: {self.args.storage.gradient_repo}")
                     success = self.address_store.store_hf_repo(
@@ -139,7 +139,7 @@ class Validation:
             tokenizer=self.tokenizer,
             optimizer=self.optimizer,
             check_update_interval=120*60,
-            bittensor_network=BittensorNetwork,
+            commune_network=CommuneNetwork,
             chain_manager=self.address_store,
             hf_manager=self.hf_manager,
             interval=20*60,

@@ -1,5 +1,4 @@
 #Thanks SN9
-
 import multiprocessing
 import functools
 import bittensor as bt
@@ -7,8 +6,11 @@ import os
 import lzma
 import base64
 import multiprocessing
-from typing import Optional, Any
-from bittensor.btlogging import logging
+from typing import Optional, Any, Dict
+from bittensor import logging
+from communex.misc import get_map_modules
+import time 
+
 
 def _wrapped_func(func: functools.partial, queue: multiprocessing.Queue):
     try:
@@ -56,187 +58,110 @@ def run_in_subprocess(func: functools.partial, ttl: int, mode="fork") -> Any:
 class ChainMultiAddressStore:
     """Chain based implementation for storing and retrieving multiaddresses."""
 
+    # To write
+    # Steps before calling. 
+    # 1) Keypair
+    # 2) Module name (metagraph like obj?)
+    # 3) Module Address ()
+    # response = client.update_module(
+    #         key=resolved_key,
+    #         name=module["name"],
+    #         address=module["address"],
+    #         delegation_fee=20,#module["delegation_fee"],
+    #         netuid=netuid,
+    #         metadata=module["metadata"],
+    #     )
+    #
+    #
+    # To read
+    # 
+    # 
+
     def __init__(
         self,
-        subtensor: bt.subtensor,
-        subnet_uid: int,
-        wallet: Optional[bt.wallet] = None,
+        client,
+        netuid,
+        keypair,
+        name
         
     ):
-        self.subtensor = subtensor
-        self.wallet = wallet
-        self.subnet_uid = subnet_uid
+        self.client = client
+        self.netuid = netuid
+        self.keypair = keypair
+        self.name = name
+        self._cached_modules = None
+        self._last_cache_time = 0
+        self.CACHE_EXPIRATION_TIME = 600  # 10 minutes in seconds
 
     def store_hf_repo(self, hf_repo: str):
         """Stores compressed multiaddress on this subnet for a specific wallet."""
-        if self.wallet is None:
-            raise ValueError("No wallet available to write to the chain.")
+        if self.keypair is None:
+            raise ValueError("No key available to write to the chain.")
 
         # Compress the multiaddress
 
         # Wrap calls to the subtensor in a subprocess with a timeout to handle potential hangs.
-        partial = functools.partial(
-            self.subtensor.commit,
-            self.wallet,
-            self.subnet_uid,
-            hf_repo,
+        partial = functools.partial( 
+            self.client.update_module,
+            key=self.keypair,
+            name=self.name,
+            address="127.0.0.1:1234",
+            metadata=hf_repo,
+            netuid=self.netuid
         )
+        
         run_in_subprocess(partial, 60)
 
-    def retrieve_hf_repo(self, hotkey: str) -> Optional[str]:
+    def _get_cached_modules(self) -> Optional[Dict[str, Any]]:
+        """Fetches and caches the modules data, retrying every 10 seconds if modules are None."""
+        current_time = time.time()
+        if current_time - self._last_cache_time > self.CACHE_EXPIRATION_TIME:
+            self.clear_cache()
+        
+        if self._cached_modules is None:
+            partial = functools.partial(
+                get_map_modules, self.client, netuid=self.netuid, include_balances=False
+            )
+            
+            for attempt in range(self.MAX_RETRIES):
+                try:
+                    self._cached_modules = run_in_subprocess(partial, 120)
+                    if self._cached_modules is not None:
+                        self._last_cache_time = current_time
+                        return self._cached_modules
+                except Exception as e:
+                    print(f"Attempt {attempt + 1} failed to retrieve modules for netuid: {self.netuid}. Error: {str(e)}")
+                
+                if attempt < self.MAX_RETRIES - 1:
+                    print(f"Retrying in 10 seconds...")
+                    time.sleep(10)
+            
+            print(f"Failed to retrieve modules for netuid: {self.netuid} after {self.MAX_RETRIES} attempts")
+            return None
+
+        return self._cached_modules
+
+
+    def retrieve_hf_repo(self, uid: int) -> Optional[str]: #TODO address whole subnet queries with a single request
         """Retrieves and decompresses multiaddress on this subnet for specific hotkey"""
         # Wrap calls to the subtensor in a subprocess with a timeout to handle potential hangs.
-        partial = functools.partial(
-            bt.extrinsics.serving.get_metadata, self.subtensor, self.subnet_uid, hotkey
-        )
-
-        try:
-            metadata = run_in_subprocess(partial, 60)
-        except:
-            metadata = None
-            logging.warning(f"Failed to retreive multiaddress for: {hotkey}")
-            
-
-        if not metadata:
+        modules = self._get_cached_modules()
+        if modules is None:
+            print("Module empty -- WARNING")
             return None
 
-        commitment = metadata["info"]["fields"][0]
-        hex_data = commitment[list(commitment.keys())[0]][2:]
-        multiaddress = bytes.fromhex(hex_data).decode()
-
+        modules_to_list = [value for _, value in modules.items()]
         try:
-            return multiaddress
-        except:
-            # If the data format is not correct or decompression fails, return None.
-            bt.logging.trace(
-                f"Failed to parse the data on the chain for hotkey {hotkey}."
-            )
+            hf_repo = next((item for item in modules_to_list if item["uid"] == uid), None)['address']
+        except Exception as e:
+            print(f"Retreival failed: {e}")
             return None
 
-# Synchronous test cases for ChainMultiAddressStore
-
-
-import json
-import os
-from typing import Optional
-
-class LocalAddressStore:
-    """Simulated local storage for storing and retrieving multiaddresses, using a file for persistence."""
-
-    def __init__(self, 
-    subtensor: bt.subtensor,
-    subnet_uid: int,
-    wallet: Optional[bt.wallet] = None,
-    ):
-        self.storage_file = "storage.json"
-        self.wallet = wallet
-        # Ensure the storage file exists
-        if not os.path.exists(self.storage_file):
-            with open(self.storage_file, 'w') as file:
-                json.dump({}, file)
-
-    def _load_storage(self):
-        """Loads the storage content from a file."""
-        with open(self.storage_file, 'r') as file:
-            return json.load(file)
-
-    def _save_storage(self, storage):
-        """Saves the updated storage content to a file."""
-        with open(self.storage_file, 'w') as file:
-            json.dump(storage, file)
-
-    def store_hf_repo(self, hf_repo: str):
-        """Stores the Hugging Face repository link for a specific wallet."""
-        if self.wallet is None:
-            raise ValueError("No wallet available to write to the storage.")
+        return hf_repo
+    
+    def clear_cache(self):
+        """Clears the cached modules data."""
+        self._cached_modules = None
+        self._last_cache_time = 0
         
-        storage = self._load_storage()
-        storage[self.wallet.hotkey.ss58_address] = hf_repo
-        self._save_storage(storage)
-        print(f"Stored {hf_repo} for {self.wallet.hotkey.ss58_address}")
-
-    def retrieve_hf_repo(self, hotkey: str) -> Optional[str]:
-        """Retrieves the Hugging Face repository link for a specific wallet."""
-        storage = self._load_storage()
-        hf_repo = storage.get(hotkey)
-        if hf_repo:
-            print(f"Retrieved {hf_repo}")
-            return hf_repo
-        else:
-            print(f"Failed to retrieve repository for: {hotkey}")
-            return None
-
-
-def test_store_multiaddress():
-    """Verifies that the ChainMultiAddressStore can store data on the chain."""
-    multiaddress = "/ip4/198.51.100.0/tcp/4242/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
-
-    # Use a different subnet that does not leverage chain storage to avoid conflicts.
-    subtensor = bt.subtensor()
-
-    # Uses .env configured wallet/hotkey/uid for the test.
-    coldkey = os.getenv("TEST_COLDKEY")
-    hotkey = os.getenv("TEST_HOTKEY")
-    net_uid = int(os.getenv("TEST_SUBNET_UID"))
-
-    wallet = bt.wallet(name=coldkey, hotkey=hotkey)
-
-    address_store = ChainMultiAddressStore(subtensor, wallet, net_uid)
-
-    # Store the multiaddress on chain.
-    address_store.store_multiaddress(hotkey, multiaddress)
-
-    print(f"Finished storing multiaddress for {hotkey} on the chain.")
-
-
-def test_retrieve_multiaddress():
-    """Verifies that the ChainMultiAddressStore can retrieve data from the chain."""
-    expected_multiaddress = "/ip4/198.51.100.0/tcp/4242/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
-
-    # Use a different subnet that does not leverage chain storage to avoid conflicts.
-    subtensor = bt.subtensor()
-
-    # Uses .env configured hotkey/uid for the test.
-    net_uid = int(os.getenv("TEST_SUBNET_UID"))
-    hotkey = os.getenv("TEST_HOTKEY")
-
-    address_store = ChainMultiAddressStore(subtensor, None, net_uid)
-
-    # Retrieve the multiaddress from the chain.
-    retrieved_multiaddress = address_store.retrieve_multiaddress(hotkey)
-
-    print(f"Retrieved multiaddress matches expected: {expected_multiaddress == retrieved_multiaddress}")
-
-
-def test_roundtrip_multiaddress():
-    """Verifies that the ChainMultiAddressStore can roundtrip data on the chain."""
-    multiaddress = "/ip4/198.51.100.0/tcp/4242/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
-
-    # Use a different subnet that does not leverage chain storage to avoid conflicts.
-    subtensor = bt.subtensor()
-
-    # Uses .env configured wallet/hotkey/uid for the test.
-    coldkey = os.getenv("TEST_COLDKEY")
-    hotkey = os.getenv("TEST_HOTKEY")
-    net_uid = int(os.getenv("TEST_SUBNET_UID"))
-
-    wallet = bt.wallet(name=coldkey, hotkey=hotkey)
-
-    address_store = ChainMultiAddressStore(subtensor, wallet, net_uid)
-
-    # Store the multiaddress on chain.
-    address_store.store_multiaddress(hotkey, multiaddress)
-
-    # Retrieve the multiaddress from the chain.
-    retrieved_multiaddress = address_store.retrieve_multiaddress(hotkey)
-
-    print(f"Expecting matching multiaddress: {multiaddress == retrieved_multiaddress}")
-
-
-
-if __name__ == "__main__":
-    # Can only commit data every ~20 minutes.
-    # asyncio.run(test_roundtrip_model_metadata())
-    # asyncio.run(test_store_model_metadata())
-    test_retrieve_model_metadata()
-
+# Synchronous test cases for ChainMultiAddressStore

@@ -10,8 +10,8 @@ from bittensor import metagraph
 
 import requests
 
-from hivetrain.btt_connector import (
-    BittensorNetwork,
+from hivetrain.comm_connector import (
+    CommuneNetwork,
 )
 from hivetrain.config import Configurator
 from hivetrain import __spec_version__
@@ -26,7 +26,7 @@ class ValidationCommunicator:
     """Periodically send dummy requests to validators."""
 
     def __init__(self, args, sync_interval=600):
-        BittensorNetwork.initialize(args)
+        CommuneNetwork.initialize(args)
 
         self.wallet = BittensorNetwork.wallet
         self.subtensor = BittensorNetwork.subtensor

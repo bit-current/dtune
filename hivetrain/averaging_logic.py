@@ -19,7 +19,7 @@ from hivetrain.config.mlflow_config import (
 from hivetrain.utils.mlflow_utils import VERSION, initialize_mlflow, log_model_metrics
 import math
 from copy import deepcopy
-from hivetrain.btt_connector import BittensorNetwork, sync
+from hivetrain.comm_connector import CommuneNetwork
 from bittensor import logging
 from transformers import TrainingArguments, Trainer, AdamW
 from torch import nn, optim
@@ -36,7 +36,7 @@ class Averager:
         tokenizer,
         hf_manager,
         chain_manager,
-        bittensor_network,
+        commune_network,
         hf_token=os.environ.get("HF_TOKEN"),
         device="cuda",
         batch_size=1,
@@ -45,7 +45,7 @@ class Averager:
         self.model = model.to(device)
         self.hf_token = hf_token
         self.last_sync_time = 0
-        self.bittensor_network = bittensor_network
+        self.commune_network = commune_network
         self.chain_manager = chain_manager
         self.hf_manager = hf_manager
         self.device=device
@@ -86,12 +86,12 @@ class Averager:
         return average_loss, perplexity
 
     def get_miner_and_validator_uids(self):
-        validator_uids = self.bittensor_network.get_validator_uids()
-        miner_uids = [miner for miner in range(len(self.bittensor_network.metagraph.hotkeys)) if miner not in validator_uids]
+        validator_uids = self.commune_network.get_validator_uids()
+        miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
         return miner_uids, validator_uids
 
     def create_uid_to_hotkey_map(self):
-        return {uid: self.bittensor_network.metagraph.hotkeys[uid] for uid in range(len(self.bittensor_network.metagraph.hotkeys))}
+        return {uid: self.commune_network.hotkeys[uid] for uid in range(len(self.commune_network.hotkeys))}
 
     @staticmethod
     def calculate_miner_distribution(miner_uids, validator_uids):
@@ -130,21 +130,41 @@ class Averager:
     @staticmethod
     def get_current_run(counter, total_runs):
         return counter % total_runs
+    
+    @staticmethod    
+    def check_valis(validator_uids, uid_to_hotkey, chain_manager, hf_api):
+        false_valis = []
+        for validator_uid in validator_uids:
+            hf_repo = chain_manager.retrieve_hf_repo(validator_uid)
+            breakpoint()
+            if hf_repo is None:
+                false_valis.append(validator_uid)
+                continue 
+
+            repo_files = hf_api.list_repo_files(hf_repo)
+
+            if "gradients.pt" not in repo_files:
+                false_valis.append(validator_uid)
+
+        for false_vali in false_valis:
+            validator_uids.remove(false_vali)
+
+        return validator_uids
 
     def assign_miners_to_validators(self):
         try:
             miner_uids, validator_uids = self.get_miner_and_validator_uids()
             uid_to_hotkey = self.create_uid_to_hotkey_map()
             
-            miner_uids = self.bittensor_network.check_valis(miner_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
-            validator_uids = self.bittensor_network.check_valis(validator_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
+            miner_uids = self.commune_network.check_valis(miner_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
+            validator_uids = self.commune_network.check_valis(validator_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
             
             if len(miner_uids) == 0 or len(validator_uids) == 0:
                 print("No miners or validators available. Setting empty assignments")
                 self.save_assignments(self.hf_manager, {}, uid_to_hotkey)
                 return False
 
-            current_block = self.bittensor_network.subtensor.block
+            current_block = self.commune_network.last_block
             
             # Set the fixed number of miners per validator
             if len(validator_uids)%len(miner_uids) != 0:
@@ -212,18 +232,18 @@ class Averager:
 
     def receive_and_score_weights(self):
         # Get validators uids
-        self.bittensor_network.sync(lite=False) 
+        self.commune_network.sync(lite=False) 
 
-        validator_uids = self.bittensor_network.get_validator_uids()
+        validator_uids = self.commune_network.get_validator_uids()
 
-        # n = len(self.bittensor_network.metagraph.hotkeys) #FIXME I am only for testing NOPROD
+        # n = len(self.commune_network.hotkeys) #FIXME I am only for testing NOPROD
         # self.validator_combined_weights = torch.full((n,1), 1/n, dtype=torch.float32) #FIXME I am only for testing NOPROD
         # Get average of validator weights weighted by their stake?
         self.validator_weights = []
         self.validator_hotkeys = []
         self.validator_losses = []
 
-        for uid, hotkey in tqdm(enumerate(self.bittensor_network.metagraph.hotkeys)):
+        for uid, hotkey in tqdm(enumerate(self.commune_network.hotkeys)):
             if uid in validator_uids:
                 try:
                     print(f"Receiving from uid: {uid}")
@@ -324,8 +344,8 @@ class Averager:
     #     trainer.push_to_hub(commit_message=commit_message)
 
     # def assign_miners_to_validators(self):
-    #     validator_uids = self.bittensor_network.get_validator_uids()
-    #     miner_uids = [uid for uids in range(len(self.bittensor_network.metagraph.hotkeys)) if uid not in validator_uids]
+    #     validator_uids = self.commune_network.get_validator_uids()
+    #     miner_uids = [uid for uids in range(len(self.commune_network.hotkeys)) if uid not in validator_uids]
 
     
     def run_periodic_averaging(self, t):
@@ -348,7 +368,7 @@ class Averager:
                 #         param.data.copy_(averaged_weights[name])
             
                 #self.model.load_state_dict(averaged_weights)
-                averaged_loss, averaged_perplexity = self.evaluate_model()
+                averaged_loss, averaged_perplexity = 10,1000#self.evaluate_model()
                 if averaged_perplexity < self.base_perplexity:
                     print("Averaged Model improves loss")
                     averaged_model_path = os.path.abspath(os.path.join(

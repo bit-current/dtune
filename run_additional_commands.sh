@@ -31,32 +31,34 @@ if [ "$ROLE" = "averager" ]; then
     > averager.log 2> averager.err
 
 else
-    btcli w regen_coldkey --mnemonic $MNEMONIC_COLD --no_password --wallet.name $WALLET_NAME 
-    btcli w regen_hotkey --mnemonic $MNEMONIC_HOT --wallet.name $WALLET_NAME --wallet.hotkey $WALLET_HOTKEY
-
+    comx key regen runtime_key "$KEY_MNEMONIC"
+    
     # Register hotkey if not registered (manual step)
     # Replace wallet names and netuid as needed
-    btcli s register --netuid $NETUID --wallet.name $WALLET_NAME --wallet.hotkey $WALLET_HOTKEY --subtensor.network test --no_prompt
+    # NOTE: For ease of use and lack of headache provide an already registered key mnemonic
+    # btcli s register --netuid $NETUID --wallet.name $WALLET_NAME --wallet.hotkey $WALLET_HOTKEY --subtensor.network test --no_prompt
 
     if [ "$ROLE" = "miner" ]; then
         # Run the prototype miner
         echo "RUNNING MINER"
-        python neurons/prototype_miner.py --wallet.name $WALLET_NAME \
-        --wallet.hotkey $WALLET_HOTKEY --subtensor.network test --netuid $NETUID \
+        python neurons/prototype_miner.py \
+        --netuid $NETUID \
         --storage.gradient_repo $WEIGHT_REPO --storage.averaged_model_repo_id $AVERAGED_REPO \
         --storage.gradient_repo_local $WEIGHT_REPO_DIR --storage.averaged_model_repo_local $AVERAGED_REPO_DIR \
         --miner.batch_size $BATCH_SIZE \
+        --key_name runtime_key \
         > miner.log 2> miner.err
 
 
     elif [ "$ROLE" = "validator" ]; then
         
         echo "RUNNING VALIDATOR"
-        python neurons/prototype_validator.py --wallet.name $WALLET_NAME \
-        --wallet.hotkey $WALLET_HOTKEY --subtensor.network test --netuid $NETUID \
+        python neurons/prototype_validator.py \
+        --netuid $NETUID \
         --storage.gradient_repo $WEIGHT_REPO --storage.averaged_model_repo_id $AVERAGED_REPO \
         --storage.gradient_repo_local $WEIGHT_REPO_DIR --storage.averaged_model_repo_local $AVERAGED_REPO_DIR \
         --miner.batch_size $BATCH_SIZE \
+        --key_name runtime_key \
         > validator.log 2> validator.err
     
     fi

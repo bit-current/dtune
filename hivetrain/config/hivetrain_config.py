@@ -6,7 +6,10 @@ import time
 
 
 def add_meta_miner_args(parser):
-    
+
+    parser.add_argument("--key_name", type=str, help="Commune key name")
+    parser.add_argument("--key_password", type=str, default=1024, help="Commune key decryption password")
+
     parser.add_argument("--model.sequence_length", type=int, default=1024, help="Sequence length of model in question")
     ## Standard Pytorch
     parser.add_argument("--miner.batch_size", type=int, default=64, help="Batch size per forward/backward pass") 

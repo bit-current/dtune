@@ -4,7 +4,7 @@ from hivetrain.averaging_logic import Averager
 from hivetrain.dataset import SubsetFineWebEdu2Loader
 from transformers import DataCollatorForLanguageModeling, BitsAndBytesConfig, AdamW, AutoModelForCausalLM, AutoTokenizer
 from hivetrain.hf_manager import HFManager
-from hivetrain.btt_connector import BittensorNetwork
+from hivetrain.comm_connector import CommuneNetwork
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from hivetrain.config import Configurator
 from hivetrain.chain_manager import ChainMultiAddressStore
@@ -17,7 +17,7 @@ args = Configurator.combine_configs()
 batch_size = args.miner.batch_size
 
 ## Chain communication setup
-BittensorNetwork.initialize(args,ignore_regs=True)
+CommuneNetwork.initialize(args,ignore_regs=True)
 
 quantization_config = None
 
@@ -42,7 +42,7 @@ config = LoraConfig(
 model = get_peft_model(model, config)
 
 address_store = ChainMultiAddressStore(
-    BittensorNetwork.subtensor, args.netuid, BittensorNetwork.wallet
+    CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair
 )
 
 hf_manager = HFManager( averaged_model_repo_id=args.storage.averaged_model_repo_id, averaged_model_repo_local=args.storage.averaged_model_repo_local, \
@@ -73,7 +73,7 @@ averager = Averager(
         tokenizer,
         hf_manager,
         address_store,
-        BittensorNetwork,
+        CommuneNetwork,
         hf_token=os.environ.get("HF_TOKEN"),
         device="cuda",
         data_loader=data_loader

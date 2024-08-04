@@ -12,6 +12,7 @@ import wandb
 import math
 
 
+
 class ModelValidator:
     def __init__(
         self,
@@ -20,7 +21,7 @@ class ModelValidator:
         tokenizer,
         optimizer,
         check_update_interval=300,
-        bittensor_network=None,
+        commune_network=None,
         chain_manager=None,
         hf_manager=None,
         interval=300,
@@ -36,7 +37,7 @@ class ModelValidator:
         self.interval = interval  # Validation interval in seconds
         self.assignment_interval = assignment_interval  # Interval for changing block number
         #self.base_loss, self.base_perplexity = self.evaluate_model()
-        self.bittensor_network = bittensor_network
+        self.commune_network = commune_network
         self.scores = {}
         self.normalized_scores = {}
         self.chain_manager = chain_manager
@@ -97,8 +98,8 @@ class ModelValidator:
 
     def get_selected_miner_uids(self, assignments):
         uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
-        my_hotkey = self.bittensor_network.wallet.hotkey.ss58_address
-        my_uid = self.bittensor_network.metagraph.hotkeys.index(my_hotkey)
+        my_hotkey = self.commune_network.my_hotkey
+        my_uid = self.commune_network.my_uid
         
         try:
             selected_miner_uids = list(set(assignments[my_uid]))
@@ -109,8 +110,8 @@ class ModelValidator:
                 selected_miner_uids = list(set(assignments[random_key][:5]))
                 print(f"Copying assignments of UID:{random_key}")
             else:
-                validator_uids = self.bittensor_network.get_validator_uids() 
-                miner_uids = [miner for miner in range(len(self.bittensor_network.metagraph.hotkeys)) if miner not in validator_uids]
+                validator_uids = self.commune_network.get_validator_uids() 
+                miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
                 miner_vali_ratio = 5
                 selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
                 print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
@@ -134,7 +135,7 @@ class ModelValidator:
 
     def validate_and_score(self):
         print("Receiving Gradients from chain")
-        self.bittensor_network.sync(lite=True)
+        self.commune_network.sync(lite=True)
 
         # Fetch and process assignments
         assignments = self.fetch_and_process_assignments()
@@ -149,9 +150,15 @@ class ModelValidator:
         # Fetch all gradients at once
         print("Fetching all gradients...")
         for miner_id in selected_miner_uids:
-            miner_hotkey = self.bittensor_network.metagraph.hotkeys[miner_id]
-            hf_repo = self.chain_manager.retrieve_hf_repo(miner_hotkey)
+            
+            #miner_hotkey = self.commune_network.hotkeys[miner_id]
+            hf_repo = self.chain_manager.retrieve_hf_repo(miner_id)
+            
+            print(f"Fetching repo: {hf_repo} for UID {miner_id}")
             gradient_path = self.hf_manager.receive_gradients(hf_repo, path_only=True)
+            if gradient_path is None:
+                print("Skipping UID as no registered repo")
+                continue
             with open(gradient_path, "rb") as file:
                 gradient_hash = hashlib.sha256(file.read()).hexdigest()
 
@@ -258,8 +265,8 @@ class ModelValidator:
         self.hf_manager.push_gradients(["gradients.pt", "loss.pt"])
         print("Successfully pushed the updated model to Hugging Face.")
         
-        if self.bittensor_network.should_set_weights():
-            self.bittensor_network.set_weights(self.scores)
+        if self.commune_network.should_set_weights():
+            self.commune_network.set_weights(self.scores)
                 
     def start_periodic_validation(self):
 

@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 from datasets import load_dataset
 from torch.utils.data.distributed import DistributedSampler
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from hivetrain.btt_connector import BittensorNetwork
+from hivetrain.comm_connector import CommuneNetwork
 from hivetrain.chain_manager import ChainMultiAddressStore
 from hivetrain.config import Configurator
 from hivetrain.dataset import SubsetFineWebEdu2Loader
@@ -79,12 +79,10 @@ class Miner:
         
         The function also calls `update_address_store` to refresh the address store with the latest data from the network.
         """
-        BittensorNetwork.initialize(self.args)
-        self.my_hotkey = BittensorNetwork.wallet.hotkey.ss58_address
-        self.my_uid = BittensorNetwork.metagraph.hotkeys.index(self.my_hotkey)
-        set_seed(self.my_uid)
+        CommuneNetwork.initialize(self.args)
+        set_seed(CommuneNetwork.my_uid)
         self.address_store = ChainMultiAddressStore(
-            BittensorNetwork.subtensor, self.args.netuid, BittensorNetwork.wallet
+            CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair, self.args.module_name
         )
         try:
             success = self.update_address_store()
@@ -106,7 +104,7 @@ class Miner:
         attempt = 0
         while attempt < max_retries:
             try:
-                current_address = self.address_store.retrieve_hf_repo(self.my_hotkey)
+                current_address = self.address_store.retrieve_hf_repo(CommuneNetwork.my_uid)
                 if current_address != self.args.storage.gradient_repo:
                     print(f"Storing new value: {self.args.storage.gradient_repo}")
                     success = self.address_store.store_hf_repo(
