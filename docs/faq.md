@@ -10,6 +10,12 @@ Follow these steps to troubleshoot your miner or validator:
 4. Are there any suspicious logs?
 5. If no obvious solution shows, please post an issue on the GitHub repo or reach out to the team on the commune discord SN16.
 
+
+### What's the minimum hardware requirements?.
+We recommend a minimum of a 24GB VRAM gpu with CUDA support for miners and validators, 200GB of storage and a 1GBPS bandwidth up/down. You're free to experiment with other approaches CPU, mROC, etc. or with reducing VRAM. Feel free to expeirment with smaller/bigger/custom/alien setups long as you're able to train as a miner and keep up your performance and therefore your incentive, or validate your miners at a sufficient quality and within the specified interval (currently 8/4/24 @ 20 mins)
+
+We understand. It is a compromise between computational cost to run a validator node and vtrust. We are planning some future edits to the training/validation workflow that should see both computational cost go down and vtrust go up.
+
 ### Your vtrust sucks.
 
 We understand. It is a compromise between computational cost to run a validator node and vtrust. We are planning some future edits to the training/validation workflow that should see both computational cost go down and vtrust go up.
