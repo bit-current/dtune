@@ -20,7 +20,6 @@ from hivetrain.utils.mlflow_utils import VERSION, initialize_mlflow, log_model_m
 import math
 from copy import deepcopy
 from hivetrain.comm_connector import CommuneNetwork
-from bittensor import logging
 from transformers import TrainingArguments, Trainer, AdamW
 from torch import nn, optim
 import torch.nn.functional as F

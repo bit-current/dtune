@@ -6,24 +6,22 @@ import numpy as np
 import torch
 import time
 from typing import List, Tuple
-import bittensor.utils.networking as net
 import threading
-import logging
 from . import __spec_version__
-from bittensor import logging
 from communex.misc import get_map_modules
 import functools
 import multiprocessing
 from typing import Any
+import sys
+import random 
+from time import sleep
 
-#logger = logging.getLogger('waitress')
-#logger.setLevel(logging.DEBUG)
 
 def retry(max_retries: int | None, retry_exceptions: list[type]):
     assert max_retries is None or max_retries > 0
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
-        def wrapper(*args: P.args, **kwargs: P.kwargs):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
             max_retries__ = max_retries or sys.maxsize  # TODO: fix this ugly thing
             for tries in range(max_retries__ + 1):
                 try:
@@ -32,7 +30,7 @@ def retry(max_retries: int | None, retry_exceptions: list[type]):
                 except Exception as e:
                     if any(isinstance(e, exception_t) for exception_t in retry_exceptions):
                         func_name = func.__name__
-                        log(f"An exception occurred in '{func_name} on try {tries}': {e}, but we'll retry.")
+                        print(f"An exception occurred in '{func_name} on try {tries}': {e}, but we'll retry.")
                         if tries < max_retries__:
                             delay = (1.4 ** tries) + random.uniform(0, 1)
                             sleep(delay)
@@ -256,7 +254,7 @@ class CommuneNetwork:
                 cls.resync_metagraph(lite)
                 cls.last_sync_time = time.time()
             except Exception as e:
-                logging.warning(f"Failed to resync metagraph: {e}")
+                print(f"Failed to resync metagraph: {e}")
         else:
             print("Metagraph Sync Interval not yet passed")
 
@@ -309,7 +307,7 @@ class CommuneNetwork:
             modules = run_in_subprocess(partial, 120)
         except:
             modules = None
-            logging.warning(f"Failed to retreive stakes")
+            print(f"Failed to retreive stakes")
             return
 
         cls.stakes = cls.sort_and_extract_attribute(modules, "stake")

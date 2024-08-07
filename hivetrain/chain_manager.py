@@ -1,13 +1,11 @@
 #Thanks SN9
 import multiprocessing
 import functools
-import bittensor as bt
 import os
 import lzma
 import base64
 import multiprocessing
 from typing import Optional, Any, Dict
-from bittensor import logging
 from communex.misc import get_map_modules
 import time 
 

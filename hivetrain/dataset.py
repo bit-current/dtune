@@ -5,7 +5,6 @@ import typing
 import random
 import time
 import requests
-import bittensor as bt
 from torch.utils.data import IterableDataset
 from transformers import AutoTokenizer
 from datasets import load_dataset
@@ -85,14 +84,14 @@ class SubsetFineWebEdu2Loader(IterableDataset):
 
             except requests.exceptions.RequestException as e:
                 attempts += 1
-                bt.logging.warning(
+                print(
                     f"Failed to fetch data, retrying with a newly sampled page. Attempt {attempts}/{self.retry_limit * num_pages}"
                 )
                 if attempts < num_pages * self.retry_limit:
                     pass
 
                 else:
-                    bt.logging.error(
+                    print(
                         "Maximum retry limit reached. Unable to fetch data."
                     )
                     raise
@@ -142,13 +141,13 @@ class SubsetFineWebEdu2Loader(IterableDataset):
             
             except requests.exceptions.RequestException as e:
                 attempt += 1
-                bt.logging.warning(
+                print(
                     f"Failed to fetch data for page {page}, retrying. Attempt {attempt}/{self.retry_limit}"
                 )
                 if attempt < self.retry_limit:
                     time.sleep(self.retry_delay)  # Wait before the next retry
                 else:
-                    bt.logging.error(
+                    print(
                         "Maximum retry limit reached. Unable to fetch data."
                     )
                     raise
@@ -184,14 +183,14 @@ class SubsetFineWebEdu2Loader(IterableDataset):
 
             except requests.exceptions.RequestException as e:
                 attempts += 1
-                bt.logging.warning(
+                print(
                     f"Failed to fetch data, retrying with a newly sampled page. Attempt {attempts}/{self.retry_limit * num_pages}"
                 )
                 if attempts < num_pages * self.retry_limit:
                     pass
 
                 else:
-                    bt.logging.error(
+                    print(
                         "Maximum retry limit reached. Unable to fetch data."
                     )
                     raise
@@ -268,13 +267,13 @@ class SubsetFineWebEdu2Loader(IterableDataset):
                     
             except requests.exceptions.RequestException as e:
                 attempt += 1
-                bt.logging.warning(
+                print(
                     f"Failed to fetch dataset configs, retrying. Attempt {attempt}/{self.retry_limit}"
                 )
                 if attempt < self.retry_limit:
                     time.sleep(self.retry_delay)  # Wait before the next retry
                 else:
-                    bt.logging.error(
+                    print(
                         "Maximum retry limit reached. Unable to fetch data."
                     )
                     raise
@@ -343,7 +342,7 @@ class SubsetFineWebEdu2Loader(IterableDataset):
         """
         Refreshes the data by fetching new pages and updating the buffer.
         """
-        bt.logging.info("Refreshing data with new pages...")
+        print("Refreshing data with new pages...")
         
         # Clear the existing buffer
         self.buffer = []
@@ -353,6 +352,6 @@ class SubsetFineWebEdu2Loader(IterableDataset):
         if self.num_pages:
             self._fetch_data_to_buffer(self.num_pages)
         else:
-            bt.logging.warning("No number of pages specified. Unable to refresh data.")
+            print("No number of pages specified. Unable to refresh data.")
         
-        bt.logging.info(f"Data refreshed. New buffer size: {len(self.buffer)} tokens")
+        print(f"Data refreshed. New buffer size: {len(self.buffer)} tokens")

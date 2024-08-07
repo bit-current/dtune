@@ -1,7 +1,6 @@
 import os
 import torch
 import hashlib
-from bittensor import logging
 from dotenv import load_dotenv
 from huggingface_hub import HfApi, Repository, HfFolder
 from huggingface_hub import hf_hub_download, scan_cache_dir
@@ -109,7 +108,7 @@ class HFManager:
         # Check if the cache directory exists
         delete_strategy = scan_cache_dir().delete_revisions(*commit_hashes)
 
-        logging.info("Will free " + delete_strategy.expected_freed_size_str)
+        print("Will free " + delete_strategy.expected_freed_size_str)
         delete_strategy.execute()
 
     @staticmethod
@@ -241,7 +240,7 @@ class HFManager:
             # print(latest_commit_sha)
             return latest_commit_sha
         except Exception as e:
-            logging.info(f"Failed to fetch latest commit SHA: {e}")
+            print(f"Failed to fetch latest commit SHA: {e}")
             return None
 
     def check_for_new_submissions(self, repo): #FIXME check we're not using this double FIXME make it use a dict
@@ -275,13 +274,12 @@ class HFManager:
                 #         param.data.copy_(model_state_dict[name])
                 model.load_state_dict(temp_state_dict)
                 model.train()
-                logging.info(f"Model updated from local path: {model_path}")
                 print(f"Model updated from local path: {model_path}")
                 return model
             else:
                 raise FileNotFoundError(f"{model_file_name} not found in the repository.")
         except FileNotFoundError as e:
-            logging.info("Failure to update model: {e}")
+            print("Failure to update model: {e}")
 
     def get_local_gradient_directory(self):
         """Return the local directory of the repository."""
@@ -339,7 +337,7 @@ class HFManager:
                 return miner_weights
         
         except Exception as e:
-            logging.debug(f"Error receiving gradients from Hugging Face: {e}")
+            print(f"Error receiving gradients from Hugging Face: {e}")
 
 
     

@@ -4,8 +4,6 @@ import random
 import torch
 import time
 import math
-from bittensor import logging
-import logging
 from copy import deepcopy
 from torch.optim import AdamW
 import wandb
@@ -292,4 +290,4 @@ class DeltaValidator(ModelValidator):
                     try:
                         param.data = weight_deltas[name] + param.data
                     except Exception as e:
-                        logging.warning(f"Error loading gradients: {e}")
+                        print(f"Error loading gradients: {e}")
