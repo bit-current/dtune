@@ -30,31 +30,9 @@ export BATCH_SIZE=1  # Adjust based on your GPU memory
 export HF_TOKEN="your_huggingface_token"
 export WANDB_TOKEN="your_wandb_token"
 export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
-export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
 ```
 
-### Step 3: Clone repo
-
-### Step 3: Set up wandb
-
-```
-wandb login $WANDB_TOKEN
-```
- 
-### Step 4: Set up huggingface
-
-```
-huggingface-cli login --token $HF_TOKEN
-```
-
-### Step 5: Install git lfs
-
-```
-sudo apt install git-lfs
-cd /path/to
-```
-
-### Step 4: Run the Docker container
+### Step 3: Run the Docker container
 
 Use the following command to run the Docker container:
 
@@ -74,7 +52,7 @@ docker run -d \
   -e ROLE=miner \
   -e WANDB_TOKEN=$WANDB_TOKEN \
   -e AVERAGED_MINER_ASSIGNMENT_REPO=$AVERAGED_MINER_ASSIGNMENT_REPO \
-  -e AVERAGED_MINER_ASSIGNMENT_DIR=$AVERAGED_MINER_ASSIGNMENT_DIR
+  -e AVERAGED_MINER_ASSIGNMENT_DIR=averaged_assignment
 ```
 
 Note: Adjust the `ROLE` environment variable to `averager` or `validator` depending on which component you want to run.
@@ -103,7 +81,47 @@ export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
 export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
 ```
 
-### Step 3: Run the components
+### Step 3: Create key
+
+```
+comx key regen runtime_key "$KEY_MNEMONIC"
+```
+
+### Step 4: Clone repo
+
+```
+git clone https://github.com/bit-current/dtune
+cd dtune
+```
+
+### Step 5: Set up wandb
+
+```
+wandb login $WANDB_TOKEN
+```
+ 
+### Step 6: Set up huggingface
+
+```
+huggingface-cli login --token $HF_TOKEN
+```
+
+### Step 7: Install git lfs
+
+```
+sudo apt install git-lfs
+git lfs install
+```
+
+## Step 7.5: (In case of pydantic/library errors)
+
+The order of installation is important for this bug
+```
+pip install --upgrade bittensor
+pip install --upgrade communex
+```
+
+### Step 8: Run the components
 
 #### To run the miner:
 
@@ -112,10 +130,10 @@ python neurons/prototype_miner.py \
   --netuid $NETUID \
   --storage.gradient_repo $WEIGHT_REPO \
   --storage.averaged_model_repo_id $AVERAGED_REPO \
-  --storage.gradient_repo_local $WEIGHT_REPO_DIR \
-  --storage.averaged_model_repo_local $AVERAGED_REPO_DIR \
+  --storage.gradient_repo_local "gradient_repo" \
+  --storage.averaged_model_repo_local "averaged_repo" \
   --storage.averaged_miner_assignment_repo_id $AVERAGED_MINER_ASSIGNMENT_REPO \
-  --storage.averaged_miner_assignment_repo_local $AVERAGED_MINER_ASSIGNMENT_DIR \
+  --storage.averaged_miner_assignment_repo_local "averager_assignment" \
   --miner.batch_size $BATCH_SIZE \
   --key_name runtime_key \
   > miner.log 2> miner.err
@@ -128,9 +146,9 @@ python neurons/prototype_averager.py \
   --subtensor.network test \
   --netuid $NETUID \
   --storage.averaged_model_repo_id $AVERAGED_REPO \
-  --storage.averaged_model_repo_local $AVERAGED_REPO_DIR \
+  --storage.averaged_model_repo_local "averaged_repo" \
   --storage.averaged_miner_assignment_repo_id $AVERAGED_MINER_ASSIGNMENT_REPO \
-  --storage.averaged_miner_assignment_repo_local $AVERAGED_MINER_ASSIGNMENT_DIR \
+  --storage.averaged_miner_assignment_repo_local "averager_assignment" \
   --miner.batch_size $BATCH_SIZE \
   > averager.log 2> averager.err
 ```
@@ -142,10 +160,10 @@ python neurons/prototype_validator.py \
   --netuid $NETUID \
   --storage.gradient_repo $WEIGHT_REPO \
   --storage.averaged_model_repo_id $AVERAGED_REPO \
-  --storage.gradient_repo_local $WEIGHT_REPO_DIR \
-  --storage.averaged_model_repo_local $AVERAGED_REPO_DIR \
+  --storage.gradient_repo_local "gradient_repo" \
+  --storage.averaged_model_repo_local "averaged_repo" \
   --storage.averaged_miner_assignment_repo_id $AVERAGED_MINER_ASSIGNMENT_REPO \
-  --storage.averaged_miner_assignment_repo_local $AVERAGED_MINER_ASSIGNMENT_DIR \
+  --storage.averaged_miner_assignment_repo_local "averager_assignment" \
   --miner.batch_size $BATCH_SIZE \
   --key_name runtime_key \
   > validator.log 2> validator.err
