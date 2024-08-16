@@ -24,16 +24,37 @@ First, set up the required environment variables. Replace the placeholders with 
 ```bash
 export NETUID=16
 export KEY_MNEMONIC="your mnemonic phrase here"
-export AVERAGED_REPO="huggingface_repo/averaging_model"
+export AVERAGED_REPO="mekaneeky/gpt-neo-averager"
 export WEIGHT_REPO="your_huggingface_username/your_weight_repo"
-export BATCH_SIZE=32  # Adjust based on your GPU memory
+export BATCH_SIZE=1  # Adjust based on your GPU memory
 export HF_TOKEN="your_huggingface_token"
 export WANDB_TOKEN="your_wandb_token"
 export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
 export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
 ```
 
-### Step 3: Run the Docker container
+### Step 3: Clone repo
+
+### Step 3: Set up wandb
+
+```
+wandb login $WANDB_TOKEN
+```
+ 
+### Step 4: Set up huggingface
+
+```
+huggingface-cli login --token $HF_TOKEN
+```
+
+### Step 5: Install git lfs
+
+```
+sudo apt install git-lfs
+cd /path/to
+```
+
+### Step 4: Run the Docker container
 
 Use the following command to run the Docker container:
 
