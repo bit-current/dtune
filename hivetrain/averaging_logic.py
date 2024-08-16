@@ -16,7 +16,7 @@ from hivetrain.config.mlflow_config import (
     CURRENT_MODEL_NAME,
     MLFLOW_ACTIVE,
 )
-from hivetrain.utils.mlflow_utils import VERSION, initialize_mlflow, log_model_metrics
+#from hivetrain.utils.mlflow_utils import VERSION, initialize_mlflow, log_model_metrics
 import math
 from copy import deepcopy
 from hivetrain.comm_connector import CommuneNetwork
