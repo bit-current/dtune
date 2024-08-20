@@ -90,6 +90,7 @@ class ChainMultiAddressStore:
         self._cached_modules = None
         self._last_cache_time = 0
         self.CACHE_EXPIRATION_TIME = 600  # 10 minutes in seconds
+        self.MAX_RETRIES = 5
 
     def store_hf_repo(self, hf_repo: str):
         """Stores compressed multiaddress on this subnet for a specific wallet."""
@@ -103,8 +104,8 @@ class ChainMultiAddressStore:
             self.client.update_module,
             key=self.keypair,
             name=self.name,
-            address="127.0.0.1:1234",
-            metadata=hf_repo,
+            address=hf_repo,
+            metadata=None,
             netuid=self.netuid
         )
         
