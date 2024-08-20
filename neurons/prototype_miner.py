@@ -102,6 +102,7 @@ class Miner:
         max_retries = 5
         retry_delay = 5  # seconds
         attempt = 0
+        #FIXME am I a bug? 
         while attempt < max_retries:
             try:
                 current_address = self.address_store.retrieve_hf_repo(CommuneNetwork.my_uid)
@@ -157,7 +158,7 @@ class Miner:
         self.loader = SubsetFineWebEdu2Loader(
             batch_size=self.args.miner.batch_size,
             sequence_length=self.args.model.sequence_length,
-            num_pages=100,
+            num_pages=10,
             tokenizer=self.tokenizer,
         )
 

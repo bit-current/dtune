@@ -62,7 +62,7 @@ data_collator = DataCollatorForLanguageModeling(
 data_loader = SubsetFineWebEdu2Loader(
             batch_size=batch_size,
             sequence_length=args.model.sequence_length,
-            num_pages=18,
+            num_pages=1,
             tokenizer=tokenizer
         )
 
@@ -75,7 +75,7 @@ averager = Averager(
         address_store,
         CommuneNetwork,
         hf_token=os.environ.get("HF_TOKEN"),
-        device="cuda",
+        device="cuda" if torch.cuda.is_available() else "cpu",
         data_loader=data_loader
     )
 

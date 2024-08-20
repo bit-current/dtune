@@ -116,7 +116,7 @@ class Validation:
         self.loader = SubsetFineWebEdu2Loader(
             batch_size=self.args.miner.batch_size,
             sequence_length=self.args.model.sequence_length,
-            num_pages=18,
+            num_pages=1,
             tokenizer=self.tokenizer,
         )
     
