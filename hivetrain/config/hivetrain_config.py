@@ -1,7 +1,6 @@
 import os
 import torch
 import argparse
-import bittensor as bt
 import time
 
 

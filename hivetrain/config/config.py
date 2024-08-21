@@ -1,13 +1,13 @@
 import os
 import torch
 import argparse
-import bittensor as bt
 #from loguru import logger
 from argparse import ArgumentParser
-import bittensor as bt
 from .hivetrain_config import add_meta_miner_args, add_orchestrator_args, add_torch_miner_args #s, add_validator_args
 from .base_subnet_config import add_neuron_args, add_validator_args, add_miner_args
-
+import argparse
+from typing import Any, Dict
+from collections import defaultdict
 
 # def check_config(cls, config: "bt.Config"):
 #     r"""Checks/validates the config namespace object."""
@@ -41,6 +41,41 @@ from .base_subnet_config import add_neuron_args, add_validator_args, add_miner_a
 #             format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}",
 #         )
 
+class NestedNamespace:
+    def __init__(self, dictionary: Dict[str, Any]):
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                setattr(self, key, NestedNamespace(value))
+            else:
+                setattr(self, key, value)
+
+    def __getattr__(self, name):
+        return None
+
+def nested_dict():
+    return defaultdict(nested_dict)
+
+def dict_to_nested_namespace(d):
+    if not isinstance(d, dict):
+        return d
+    return NestedNamespace({k: dict_to_nested_namespace(v) for k, v in d.items()})
+
+class Config:
+    @staticmethod
+    def create_config(parser):
+        args = parser.parse_args()
+        config_dict = nested_dict()
+
+        for arg, value in vars(args).items():
+            if value is not None:
+                parts = arg.split('.')
+                current = config_dict
+                for part in parts[:-1]:
+                    current = current[part]
+                current[parts[-1]] = value
+
+        return dict_to_nested_namespace(config_dict)
+
 class Configurator:
     @staticmethod
     def combine_configs():
@@ -57,4 +92,4 @@ class Configurator:
         add_miner_args(parser)
         add_validator_args(parser)
         args = parser.parse_args()
-        return bt.config(parser)
+        return Config.create_config(parser)
