@@ -23,7 +23,7 @@ quantization_config = None
 
 learning_rate = args.miner.learning_rate
 
-model_name = "Qwen/Qwen2-1.5B"
+model_name = "openai-community/gpt2"
 model_cache_dir = '../trash_dir'  # Specify a local cache directory
 os.makedirs(model_cache_dir, exist_ok=True)
 

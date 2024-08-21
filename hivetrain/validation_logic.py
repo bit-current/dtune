@@ -75,7 +75,9 @@ class ModelValidator:
                     loss = outputs.loss
                     total_loss += loss.item() * batch["input_ids"].size(0)
                     total_samples += batch["input_ids"].size(0)
+                    print(total_samples)
                 except Exception as e:
+                    print(e)
                     continue
 
         average_loss = total_loss / total_samples
@@ -140,7 +142,10 @@ class ModelValidator:
         selected_miner_uids = self.get_selected_miner_uids(assignments)
 
         # Check for model updates
-        self.check_and_update_model()
+        try:
+            self.check_and_update_model()
+        except Exception:
+            print("Loading averager model failed. Possible corrupt averager weights.")
 
         # Create a dictionary to store UID:path mappings
         uid_gradient_paths = {}

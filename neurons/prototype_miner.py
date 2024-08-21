@@ -28,7 +28,7 @@ from hivetrain.dataset import SubsetFineWebEdu2Loader
 from hivetrain.hf_manager import HFManager
 
 
-MODEL_NAME = "Qwen/Qwen2-1.5B"
+MODEL_NAME = "openai-community/gpt2"
 
 def set_seed(seed):
     random.seed(seed)

@@ -12,7 +12,7 @@ from hivetrain.hf_manager import HFManager
 from transformers import AdamW, AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 
-MODEL_NAME = "Qwen/Qwen2-1.5B"
+MODEL_NAME = "openai-community/gpt2"
 
 class Validation:
     def __init__(self, args):
