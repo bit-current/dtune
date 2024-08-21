@@ -79,6 +79,7 @@ export HF_TOKEN="your_huggingface_token"
 export WANDB_TOKEN="your_wandb_token"
 export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
 export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
+export MODULE_NAME="your_comm_module_name"
 ```
 
 ### Step 3: Clone repo
@@ -94,10 +95,16 @@ cd dtune
 pip install -e . 
 ```
 
-### Step 5: Create key
+### Step 5: Regen registered key
 
 ```
 comx key regen runtime_key "$KEY_MNEMONIC"
+```
+
+### Step 5.1: Update registered module to have the hugginface repo as an address
+
+```
+comx module update runtime_key 16 --name "$WEIGHT_REPO"
 ```
 
 ### Step 6: Set up wandb
