@@ -81,47 +81,45 @@ export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
 export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
 ```
 
-### Step 3: Create key
-
-```
-comx key regen runtime_key "$KEY_MNEMONIC"
-```
-
-### Step 4: Clone repo
+### Step 3: Clone repo
 
 ```
 git clone https://github.com/bit-current/dtune
 cd dtune
 ```
 
-### Step 5: Set up wandb
+### Step 4: Install repo
+
+```
+pip install -e . 
+```
+
+### Step 5: Create key
+
+```
+comx key regen runtime_key "$KEY_MNEMONIC"
+```
+
+### Step 6: Set up wandb
 
 ```
 wandb login $WANDB_TOKEN
 ```
  
-### Step 6: Set up huggingface
+### Step 7: Set up huggingface
 
 ```
 huggingface-cli login --token $HF_TOKEN
 ```
 
-### Step 7: Install git lfs
+### Step 8: Install git lfs
 
 ```
 sudo apt install git-lfs
 git lfs install
 ```
 
-## Step 7.5: (In case of pydantic/library errors)
-
-The order of installation is important for this bug
-```
-pip install --upgrade bittensor
-pip install --upgrade communex
-```
-
-### Step 8: Run the components
+### Step 9: Run the components
 
 #### To run the miner:
 
