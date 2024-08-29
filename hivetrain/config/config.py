@@ -80,10 +80,6 @@ class Configurator:
     @staticmethod
     def combine_configs():
         parser = ArgumentParser(description="Unified Configuration for Bittensor")
-        bt.wallet.add_args(parser)
-        bt.subtensor.add_args(parser)
-        bt.logging.add_args(parser)
-        bt.axon.add_args(parser)
 
         add_torch_miner_args(parser)
         add_meta_miner_args(parser)
