@@ -6,7 +6,6 @@ import random
 import numpy as np
 import time
 import bitsandbytes
-from bittensor import logging
 from copy import deepcopy
 from tqdm import tqdm
 from transformers import (
@@ -220,7 +219,7 @@ class Miner:
             self.optimizer.step()
             return loss
         except Exception as e:
-            logging.warning(f"Forward pass failed: {e}")
+            print(f"Forward pass failed: {e}")
             return None
 
     def send_gradients_if_needed(self, batch_idx, epoch, total_loss, total_examples):
@@ -243,7 +242,7 @@ class Miner:
             try:
                 self.send_gradients()
             except Exception as e:
-                logging.warning(f"Sending gradients failed: {e}")
+                print(f"Sending gradients failed: {e}")
 
             self.last_send_time = time.time()
 
@@ -262,7 +261,6 @@ class Miner:
 
 
 def main():
-    logging.enable_debug()
     print("Starting!")
     args = Configurator.combine_configs()
     trainer = Miner(args)
