@@ -200,7 +200,9 @@ class Miner:
                 print("Averaged model updated on Hugging Face. Pulling latest model...")
                 self.hf_manager.pull_latest_model()
                 time.sleep(10)
-                self.model = self.hf_manager.update_model(self.model)
+                new_model = self.hf_manager.update_model(self.model)
+                if new_model is not None:
+                    self.model = new_model
                 self.setup_optimizer()
             self.last_check_time = time.time()
 
