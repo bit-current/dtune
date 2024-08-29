@@ -279,7 +279,7 @@ class HFManager:
             else:
                 raise FileNotFoundError(f"{model_file_name} not found in the repository.")
         except FileNotFoundError as e:
-            print("Failure to update model: {e}")
+            print(f"Failure to update model: {e}")
         except Exception as er:
             print("Attempting to load corrupt/wrong weights")
 

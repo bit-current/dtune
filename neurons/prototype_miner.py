@@ -174,7 +174,6 @@ class Miner:
     def train(self):
         print("Training Beginning")
         for epoch in range(self.args.miner.epochs):
-            print("Epoch")
             self.train_epoch(epoch)
             self.loader._fetch_data_to_buffer(100)
 
@@ -184,9 +183,7 @@ class Miner:
         total_examples = 0
 
         for batch_idx, batch in tqdm(enumerate(self.loader), desc=f"Epoch {epoch+1}"):
-            print("Checking model updates")
             self.check_for_model_updates()
-
             loss = self.train_step(batch)
             if loss is not None:
                 total_loss += loss.item() * batch["input_ids"].size(0)
