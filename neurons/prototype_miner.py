@@ -174,6 +174,7 @@ class Miner:
     def train(self):
         print("Training Beginning")
         for epoch in range(self.args.miner.epochs):
+            print("Epoch")
             self.train_epoch(epoch)
             self.loader._fetch_data_to_buffer(100)
 
