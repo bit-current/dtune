@@ -19,40 +19,6 @@
 import os
 import torch
 import argparse
-import bittensor as bt
-
-
-def check_config(config: "bt.Config"):
-    r"""Checks/validates the config namespace object."""
-    bt.logging.check_config(config)
-
-    full_path = os.path.expanduser(
-        "{}/{}/{}/netuid{}/{}".format(
-            config.logging.logging_dir,  # TODO: change from ~/.bittensor/miners to ~/.bittensor/neurons
-            config.wallet.name,
-            config.wallet.hotkey,
-            config.netuid,
-            config.neuron.name,
-        )
-    )
-    print("full path:", full_path)
-    config.neuron.full_path = os.path.expanduser(full_path)
-    if not os.path.exists(config.neuron.full_path):
-        os.makedirs(config.neuron.full_path, exist_ok=True)
-
-    if not config.neuron.dont_save_events:
-        # Add custom event logger for the events.
-        logger.level("EVENTS", no=38, icon="📝")
-        logger.add(
-            os.path.join(config.neuron.full_path, "events.log"),
-            rotation=config.neuron.events_retention_size,
-            serialize=True,
-            enqueue=True,
-            backtrace=False,
-            diagnose=False,
-            level="EVENTS",
-            format="{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}",
-        )
 
 
 def add_neuron_args(parser):
