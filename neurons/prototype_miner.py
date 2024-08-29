@@ -45,10 +45,15 @@ class Miner:
         self.args = args
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.setup_wandb()
+        print("WANDB set")
         self.setup_bittensor()
+        print("WANDB bittensor")
         self.setup_model_and_tokenizer()
+        print("Model and optimizer setup")
         self.setup_data_loader()
+        print("Dataloader setup")
         self.setup_optimizer()
+        print("Optimizer Setup")
         self.hf_manager = HFManager(
             gradient_repo_id=args.storage.gradient_repo,
             averaged_model_repo_id=args.storage.averaged_model_repo_id,
@@ -167,6 +172,7 @@ class Miner:
         )
 
     def train(self):
+        print("Training Beginning")
         for epoch in range(self.args.miner.epochs):
             self.train_epoch(epoch)
             self.loader._fetch_data_to_buffer(100)
@@ -177,6 +183,7 @@ class Miner:
         total_examples = 0
 
         for batch_idx, batch in tqdm(enumerate(self.loader), desc=f"Epoch {epoch+1}"):
+            print("Checking model updates")
             self.check_for_model_updates()
 
             loss = self.train_step(batch)
