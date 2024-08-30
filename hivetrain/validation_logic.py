@@ -137,8 +137,19 @@ class ModelValidator:
         self.commune_network.sync(lite=True)
 
         # Fetch and process assignments
-        assignments = self.fetch_and_process_assignments()
-        selected_miner_uids = self.get_selected_miner_uids(assignments)
+        try:
+            assignments = self.fetch_and_process_assignments()
+        except:
+            assignments = None
+        
+
+        validator_uids = self.commune_network.get_validator_uids()
+        miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
+
+        if assignments is not None:
+            selected_miner_uids = self.get_selected_miner_uids(assignments)
+        else:
+            selected_miner_uids = random.sample(miner_uids, 5)
 
         # Check for model updates
         try:
