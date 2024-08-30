@@ -149,7 +149,10 @@ class ModelValidator:
         if assignments is not None:
             selected_miner_uids = self.get_selected_miner_uids(assignments)
         else:
-            selected_miner_uids = random.sample(miner_uids, 5)
+            if len(miner_uids) > 5:
+                selected_miner_uids = random.sample(miner_uids, 5)
+            else:
+                selected_miner_uids = miner_uids
 
         # Check for model updates
         try:
