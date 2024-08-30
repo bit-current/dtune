@@ -8,7 +8,7 @@ from copy import deepcopy
 from torch.optim import AdamW
 import wandb
 import math
-
+from tqdm import tqdm
 
 
 class ModelValidator:
@@ -63,9 +63,9 @@ class ModelValidator:
         total_loss = 0
         total_samples = 0
         with torch.no_grad():
-            for batch_num, batch in enumerate(
+            for batch_num, batch in tqdm(enumerate(
                 self.data_loader
-            ):  # FIXME turn me into a generator?
+            )):  # FIXME turn me into a generator?
                 try:
                     outputs = self.model(
                         input_ids=batch["input_ids"].to(self.device),
@@ -75,7 +75,6 @@ class ModelValidator:
                     loss = outputs.loss
                     total_loss += loss.item() * batch["input_ids"].size(0)
                     total_samples += batch["input_ids"].size(0)
-                    print(total_samples)
                 except Exception as e:
                     print(e)
                     continue

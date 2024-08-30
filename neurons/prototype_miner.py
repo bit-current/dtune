@@ -183,7 +183,10 @@ class Miner:
         total_examples = 0
 
         for batch_idx, batch in tqdm(enumerate(self.loader), desc=f"Epoch {epoch+1}"):
-            self.check_for_model_updates()
+            try:
+                self.check_for_model_updates()
+            except:
+                print("Failed to check for model updates")
             loss = self.train_step(batch)
             if loss is not None:
                 total_loss += loss.item() * batch["input_ids"].size(0)
