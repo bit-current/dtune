@@ -95,7 +95,7 @@ class Validation:
             model_name,
             quantization_config=None,
             cache_dir=model_cache_dir,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.float32,
             device_map="auto"
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
