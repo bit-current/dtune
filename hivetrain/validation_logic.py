@@ -122,8 +122,10 @@ class ModelValidator:
             print("Averaged model updated on Hugging Face. Pulling latest model...")
             self.hf_manager.pull_latest_model()
             time.sleep(10)  # Give enough time for pull
-            self.model = self.hf_manager.update_model(self.model)
-            self.model = self.model.to(self.device)
+            new_model = self.hf_manager.update_model(self.model)
+            if new_model is not None:
+                self.model = new_model
+                self.model = self.model.to(self.device)
             self.optimizer = AdamW(self.model.parameters(), lr=5e-5)
             print("Evaluating new averager model")
             self.base_loss, self.base_perplexity = self.evaluate_model()
