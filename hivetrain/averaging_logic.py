@@ -63,9 +63,9 @@ class Averager:
         total_loss = 0
         total_samples = 0
         with torch.no_grad():
-            for batch_num, batch in enumerate(
+            for batch_num, batch in tqdm(enumerate(
                 self.data_loader
-            ):  # FIXME turn me into a generator?
+            )):  # FIXME turn me into a generator?
                 try:
                     outputs = self.model(
                         input_ids=batch["input_ids"].to(self.device),
@@ -246,7 +246,7 @@ class Averager:
             if uid in validator_uids:
                 try:
                     print(f"Receiving from uid: {uid}")
-                    repo_id = self.chain_manager.retrieve_hf_repo(hotkey)
+                    repo_id = self.commune_network.names[uid]
                     weight, weight_hash, loss = self.receive_weights(repo_id=repo_id)
 
                     try:
@@ -353,7 +353,7 @@ class Averager:
             print("Averaging Beggining")
             start_time = time.time()
             
-            self.data_loader._fetch_data_to_buffer(18) 
+            self.data_loader._fetch_data_to_buffer(1) 
 
             self.receive_and_score_weights()
             averaged_weights = self.average_weights()
@@ -367,7 +367,7 @@ class Averager:
                 #         param.data.copy_(averaged_weights[name])
             
                 #self.model.load_state_dict(averaged_weights)
-                averaged_loss, averaged_perplexity = 10,1000#self.evaluate_model()
+                averaged_loss, averaged_perplexity = self.evaluate_model()
                 if averaged_perplexity < self.base_perplexity:
                     print("Averaged Model improves loss")
                     averaged_model_path = os.path.abspath(os.path.join(

@@ -27,8 +27,8 @@ model_name = "openai-community/gpt2"
 model_cache_dir = '../trash_dir'  # Specify a local cache directory
 os.makedirs(model_cache_dir, exist_ok=True)
 
-model = AutoModelForCausalLM.from_pretrained(model_name, quantization_config=quantization_config, cache_dir=model_cache_dir, 
-                                             torch_dtype=torch.float16,device_map="auto")
+model = AutoModelForCausalLM.from_pretrained(model_name, quantization_config=None, cache_dir=model_cache_dir, 
+                                             torch_dtype=torch.float32)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -42,16 +42,16 @@ config = LoraConfig(
 model = get_peft_model(model, config)
 
 address_store = ChainMultiAddressStore(
-    CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair
+    CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair, args.module_name
 )
 
 hf_manager = HFManager( averaged_model_repo_id=args.storage.averaged_model_repo_id, averaged_model_repo_local=args.storage.averaged_model_repo_local, \
 averaged_miner_assignment_repo_local = args.storage.averaged_miner_assignment_repo_local, averaged_miner_assignment_repo_id = args.storage.averaged_miner_assignment_repo_id)
 
-dataset = load_dataset("wikitext", "wikitext-2-raw-v1")
-def tokenize_function(examples):
-    return tokenizer(examples["text"], return_special_tokens_mask=True)
-tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=["text"])
+# dataset = load_dataset("wikitext", "wikitext-2-raw-v1")
+# def tokenize_function(examples):
+#     return tokenizer(examples["text"], return_special_tokens_mask=True)
+# tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=["text"])
 
 # Data collator for language modeling
 data_collator = DataCollatorForLanguageModeling(
