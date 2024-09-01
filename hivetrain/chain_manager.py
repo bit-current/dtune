@@ -145,6 +145,7 @@ class ChainMultiAddressStore:
         """Retrieves and decompresses multiaddress on this subnet for specific hotkey"""
         # Wrap calls to the subtensor in a subprocess with a timeout to handle potential hangs.
         modules = self._get_cached_modules()
+        
         if modules is None:
             print("Module empty -- WARNING")
             return None

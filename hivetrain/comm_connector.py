@@ -118,7 +118,11 @@ class CommuneNetwork:
 
     @classmethod
     def check_registered(cls):
-        assert cls.my_hotkey in cls.hotkeys
+        registered = False
+        for hotkey in cls.hotkeys.values():
+            if hotkey == cls.my_hotkey:
+                registered = True
+        assert registered
 
 
     @classmethod
@@ -141,14 +145,18 @@ class CommuneNetwork:
             cls.ignore_regs = ignore_regs
 
             temp_hotkeys = cls.client.query_map_key(cls.netuid)
-            cls.hotkeys = [] #for backward compat and quick release
-            for uid in range(len(temp_hotkeys.values())):
-                cls.hotkeys.append(temp_hotkeys[uid])
-                
+            temp_names = cls.client.query_map_name(cls.netuid)
+            cls.hotkeys = dict() #for backward compat and quick release
+            cls.names = dict()
             cls.my_hotkey = cls.keypair.ss58_address
-            cls.my_uid = cls.hotkeys.index(
-                cls.my_hotkey
-            )
+            for uid in range(len(temp_hotkeys.values())):
+                if temp_hotkeys[uid] == cls.my_hotkey:
+                    cls.my_uid = uid
+                cls.hotkeys[uid] = temp_hotkeys[uid]
+                cls.names[uid] = temp_names[uid]
+                
+            
+            
 
             if not cls.ignore_regs:
                 try:
@@ -180,10 +188,15 @@ class CommuneNetwork:
             #chain_weights = torch.zeros(cls.subtensor.subnetwork_n(netuid=cls.metagraph.netuid))
             min_new_score = min(scores.values())
             max_new_score = max(scores.values())
-            normalized_new_scores = {k: (v - min_new_score) / (max_new_score - min_new_score) for k, v in scores.items()}
+            if min_new_score == max_new_score:
+                # All scores are the same, assign equal weights
+                normalized_new_scores = {k: 1.0 for k in scores}
+            else:
+                # Perform normalization as before
+                normalized_new_scores = {k: (v - min_new_score) / (max_new_score - min_new_score) for k, v in scores.items()}            
             print(f"Normalized: {normalized_new_scores}")
 
-            uids = []
+
             for uid, public_address in enumerate(cls.hotkeys):
                 try:
                     alpha = 0.333333 # T=5 (2/(5+1))
@@ -192,12 +205,10 @@ class CommuneNetwork:
                         cls.base_scores[uid] = alpha * normalized_new_score + (1 - alpha) * cls.base_scores[uid]
                     except KeyError:
                         cls.base_scores[uid] = alpha * normalized_new_score
+                        
                 except KeyError:
                     continue
 
-            uids = torch.tensor(uids)
-            print(f"raw_weights {cls.base_scores}")
-            print(f"raw_weight_uids {uids}")
             # Process the raw weights to final_weights via subtensor limitations.
             #cls.base_scores
             cls.base_scores = {k: v for k, v in cls.base_scores.items() if v != 0.0}
@@ -205,9 +216,13 @@ class CommuneNetwork:
             uids = list(cls.base_scores.keys())
             weights = list(cls.base_scores.values())
 
+            print(f"raw_weights {weights}")
+            print(f"raw_weight_uids {uids}")
+
             # Set weights on comm
             cls.client.vote(key=cls.keypair, uids=uids, weights=weights, netuid=cls.netuid)
             cls.last_set_block = cls.last_block
+            print("Weights Set !")
 
                 
         except Exception as e:
@@ -225,10 +240,12 @@ class CommuneNetwork:
         print("Resynchronizing metagraph...")
         # Update the metagraph with the latest information from the network
         temp_hotkeys = cls.client.query_map_key(cls.netuid)
-        cls.hotkeys = [] #for backward compat and quick release
+        temp_names = cls.client.query_map_name(cls.netuid)
+        cls.hotkeys = dict() #for backward compat and quick release
+        cls.names = dict()
         for uid in range(len(temp_hotkeys.values())):
-            cls.hotkeys.append(temp_hotkeys[uid])
-
+            cls.hotkeys[uid] = temp_hotkeys[uid]
+            cls.names[uid] = temp_names[uid]
         cls.get_stakes()
 
         if not cls.ignore_regs:

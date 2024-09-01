@@ -126,11 +126,11 @@ class ModelValidator:
             if new_model is not None:
                 self.model = new_model
                 self.model = self.model.to(self.device)
-            self.optimizer = AdamW(self.model.parameters(), lr=5e-5)
-            print("Evaluating new averager model")
-            self.base_loss, self.base_perplexity = self.evaluate_model()
-            self.base_weights = {name: param.clone() for name, param in self.model.named_parameters()}
-            self.last_pull_time = time.time()
+                self.optimizer = AdamW(self.model.parameters(), lr=5e-5)
+                print("Evaluating new averager model")
+                self.base_loss, self.base_perplexity = self.evaluate_model()
+                self.base_weights = {name: param.clone() for name, param in self.model.named_parameters()}
+                self.last_pull_time = time.time()
 
         self.original_state_dict = deepcopy(self.model.state_dict())
 
@@ -170,7 +170,7 @@ class ModelValidator:
         for miner_id in selected_miner_uids:
             
             #miner_hotkey = self.commune_network.hotkeys[miner_id]
-            hf_repo = self.chain_manager.retrieve_hf_repo(miner_id)
+            hf_repo = self.commune_network.names[miner_id]
             
             print(f"Fetching repo: {hf_repo} for UID {miner_id}")
             gradient_path = self.hf_manager.receive_gradients(hf_repo, path_only=True)
