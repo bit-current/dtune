@@ -1,4 +1,4 @@
-I asked some people to send ## Hivetrain Mission
+## Hivetrain Mission
 **Hivetrain** is dedicated to developing a decentralized model training platform on the Commune network. Our goal is to establish a scalable system that fosters collaboration among AI experts to build advanced multimodal models. We prioritize rewarding contributors for both their computational contributions and their innovations in model advancement.
 
 ## Distributed Continual Pretraining Subnet
