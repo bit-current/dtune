@@ -154,9 +154,6 @@ class CommuneNetwork:
                     cls.my_uid = uid
                 cls.hotkeys[uid] = temp_hotkeys[uid]
                 cls.names[uid] = temp_names[uid]
-                
-            
-            
 
             if not cls.ignore_regs:
                 try:
@@ -211,7 +208,7 @@ class CommuneNetwork:
 
             # Process the raw weights to final_weights via subtensor limitations.
             #cls.base_scores
-            cls.base_scores = {k: v for k, v in cls.base_scores.items() if v != 0.0}
+            cls.base_scores = {k: v*420 for k, v in cls.base_scores.items() if k != cls.my_uid}
 
             uids = list(cls.base_scores.keys())
             weights = list(cls.base_scores.values())
