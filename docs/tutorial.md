@@ -24,12 +24,13 @@ First, set up the required environment variables. Replace the placeholders with 
 ```bash
 export NETUID=16
 export KEY_MNEMONIC="your mnemonic phrase here"
-export AVERAGED_REPO="mekaneeky/gpt-neo-averager"
+export AVERAGED_REPO="mekaneeky/dtune-averaging-model"
 export WEIGHT_REPO="your_huggingface_username/your_weight_repo"
 export BATCH_SIZE=1  # Adjust based on your GPU memory
 export HF_TOKEN="your_huggingface_token"
 export WANDB_TOKEN="your_wandb_token"
-export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
+export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/dtune-averaging-assign"
+export MODULE_NAME="your_comm_module_name"
 ```
 
 ### Step 3: Run the Docker container
@@ -70,14 +71,14 @@ Set up the same environment variables as in the Docker method:
 ```bash
 export NETUID=16
 export KEY_MNEMONIC="your mnemonic phrase here"
-export AVERAGED_REPO="mekaneeky/gpt-neo-averager"
+export AVERAGED_REPO="mekaneeky/dtune-averaging-model"
 export WEIGHT_REPO="your_huggingface_username/your_weight_repo"
 export WEIGHT_REPO_DIR="./weight_repo"
 export AVERAGED_REPO_DIR="./averaged_repo"
 export BATCH_SIZE=32  # Adjust based on your GPU memory
 export HF_TOKEN="your_huggingface_token"
 export WANDB_TOKEN="your_wandb_token"
-export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/averager-miner-assign"
+export AVERAGED_MINER_ASSIGNMENT_REPO="mekaneeky/dtune-averaging-assign"
 export AVERAGED_MINER_ASSIGNMENT_DIR="averager_assign"
 export MODULE_NAME="your_comm_module_name"
 ```
