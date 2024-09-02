@@ -70,7 +70,7 @@ Set up the same environment variables as in the Docker method:
 ```bash
 export NETUID=16
 export KEY_MNEMONIC="your mnemonic phrase here"
-export AVERAGED_REPO="huggingface_repo/averaging_model"
+export AVERAGED_REPO="mekaneeky/gpt-neo-averager"
 export WEIGHT_REPO="your_huggingface_username/your_weight_repo"
 export WEIGHT_REPO_DIR="./weight_repo"
 export AVERAGED_REPO_DIR="./averaged_repo"
