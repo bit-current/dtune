@@ -92,8 +92,8 @@ class ModelValidator:
                 self.hf_manager.pull_latest_assignments()
                 return torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "validator_miner_assignment.pt"))
             else:
-                print("No new assignments found. Sleeping")
-                time.sleep(60)
+                print("No new assignments found. Skipping")
+                return None
 
     def get_selected_miner_uids(self, assignments):
         uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
