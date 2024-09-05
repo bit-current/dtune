@@ -295,7 +295,7 @@ class ModelValidator:
             self.validate_and_score()
             self.hf_manager.clear_hf_cache()
             
-            self.data_loader._fetch_data_to_buffer(18) 
+            self.data_loader._fetch_data_to_buffer(1) 
             
             elapsed_time = time.time() - start_time
             time_to_wait = max(0, self.interval - elapsed_time)

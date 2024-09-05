@@ -16,7 +16,6 @@ RUN apt-get update && \
     apt-get install -y git git-lfs && \
     git lfs install
 
-RUN pip install bittensor huggingface_hub communex
 
 # Intermediate stage: installs your package
 FROM base AS builder
