@@ -147,7 +147,7 @@ class ModelValidator:
             # assignments = None
         
         all_uids = [i for i in range(len(self.commune_network.hotkeys))]
-        miner_uids, _ = self.commune_network.check_valis_or_miners(all_uids, repo_type="miner")
+        miner_uids, valid_miner_names = self.commune_network.check_valis_or_miners(all_uids, repo_type="miner")
         # miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
 
         # if assignments is not None:
@@ -158,6 +158,7 @@ class ModelValidator:
         #     else:
         selected_miner_uids = miner_uids
         print(selected_miner_uids)
+        print(valid_miner_names)
 
         # Check for model updates
         try:
