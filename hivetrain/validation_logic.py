@@ -95,27 +95,27 @@ class ModelValidator:
                 print("No new assignments found. Skipping")
                 return None
 
-    def get_selected_miner_uids(self, assignments):
-        uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
-        my_hotkey = self.commune_network.my_hotkey
-        my_uid = self.commune_network.my_uid
+    # def get_selected_miner_uids(self, assignments):
+    #     uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
+    #     my_hotkey = self.commune_network.my_hotkey
+    #     my_uid = self.commune_network.my_uid
         
-        try:
-            selected_miner_uids = list(set(assignments[my_uid]))
-        except KeyError:
-            print("Validator not recognized in New Assignment")
-            if len(assignments.keys()) > 0:
-                random_key = random.choice(list(assignments.keys()))
-                selected_miner_uids = list(set(assignments[random_key][:5]))
-                print(f"Copying assignments of UID:{random_key}")
-            else:
-                validator_uids = self.commune_network.get_validator_uids() 
-                miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
-                miner_vali_ratio = 5
-                selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
-                print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
+    #     try:
+    #         selected_miner_uids = list(set(assignments[my_uid]))
+    #     except KeyError:
+    #         print("Validator not recognized in New Assignment")
+    #         if len(assignments.keys()) > 0:
+    #             random_key = random.choice(list(assignments.keys()))
+    #             selected_miner_uids = list(set(assignments[random_key][:5]))
+    #             print(f"Copying assignments of UID:{random_key}")
+    #         else:
+    #             validator_uids = self.commune_network.get_validator_uids() 
+    #             miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
+    #             miner_vali_ratio = 5
+    #             selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
+    #             print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
         
-        return selected_miner_uids
+    #     return selected_miner_uids
 
     def check_and_update_model(self):
         if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_model_repo_id):
@@ -155,6 +155,7 @@ class ModelValidator:
         #         selected_miner_uids = random.sample(miner_uids, 5)
         #     else:
         selected_miner_uids = miner_uids
+        print(selected_miner_uids)
 
         # Check for model updates
         try:
