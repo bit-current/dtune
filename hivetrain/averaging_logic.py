@@ -130,33 +130,16 @@ class Averager:
     def get_current_run(counter, total_runs):
         return counter % total_runs
     
-    @staticmethod    
-    def check_valis(validator_uids, uid_to_hotkey, chain_manager, hf_api):
-        false_valis = []
-        for validator_uid in validator_uids:
-            hf_repo = chain_manager.retrieve_hf_repo(validator_uid)
-            breakpoint()
-            if hf_repo is None:
-                false_valis.append(validator_uid)
-                continue 
+    
 
-            repo_files = hf_api.list_repo_files(hf_repo)
-
-            if "gradients.pt" not in repo_files:
-                false_valis.append(validator_uid)
-
-        for false_vali in false_valis:
-            validator_uids.remove(false_vali)
-
-        return validator_uids
 
     def assign_miners_to_validators(self):
         try:
             miner_uids, validator_uids = self.get_miner_and_validator_uids()
             uid_to_hotkey = self.create_uid_to_hotkey_map()
             
-            miner_uids = self.commune_network.check_valis(miner_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
-            validator_uids = self.commune_network.check_valis(validator_uids, uid_to_hotkey, self.chain_manager, self.hf_api)
+            miner_uids, _ = self.commune_network.check_valis_or_miners(miner_uids, self.hf_api, repo_type="miner")
+            validator_uids, _ = self.commune_network.check_valis_or_miners(validator_uids, self.hf_api, repo_type="vali")
             
             if len(miner_uids) == 0 or len(validator_uids) == 0:
                 print("No miners or validators available. Setting empty assignments")
@@ -201,7 +184,7 @@ class Averager:
 
     
     def receive_weights(
-        self, repo_id="your_username/your_repo_name", gradient_file_name="gradients.pt", loss_file_name="loss.pt"
+        self, repo_id="your_username/your_repo_name", gradient_file_name="validator_gradients.pt", loss_file_name="loss.pt"
     ):
         try:
             print(f"Receiving weights from: {repo_id}")

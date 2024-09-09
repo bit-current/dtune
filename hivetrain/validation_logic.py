@@ -9,6 +9,7 @@ from torch.optim import AdamW
 import wandb
 import math
 from tqdm import tqdm
+from huggingface_hub import HfApi
 
 
 class ModelValidator:
@@ -95,34 +96,34 @@ class ModelValidator:
                 print("No new assignments found. Skipping")
                 return None
 
-    # def get_selected_miner_uids(self, assignments):
-    #     uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
-    #     my_hotkey = self.commune_network.my_hotkey
-    #     my_uid = self.commune_network.my_uid
+    def get_selected_miner_uids(self, assignments):
+        uid_to_hotkey = torch.load(os.path.join(self.hf_manager.get_averaged_miner_assignment_directory(), "uid_hotkey.pt"))
+        my_hotkey = self.commune_network.my_hotkey
+        my_uid = self.commune_network.my_uid
         
-    #     try:
-    #         selected_miner_uids = list(set(assignments[my_uid]))
-    #     except KeyError:
-    #         print("Validator not recognized in New Assignment")
-    #         if len(assignments.keys()) > 0:
-    #             random_key = random.choice(list(assignments.keys()))
-    #             selected_miner_uids = list(set(assignments[random_key][:5]))
-    #             print(f"Copying assignments of UID:{random_key}")
-    #         else:
-    #             validator_uids = self.commune_network.get_validator_uids() 
-    #             miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
-    #             miner_vali_ratio = 5
-    #             selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
-    #             print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
+        try:
+            selected_miner_uids = list(set(assignments[my_uid]))
+        except KeyError:
+            print("Validator not recognized in New Assignment")
+            if len(assignments.keys()) > 0:
+                random_key = random.choice(list(assignments.keys()))
+                selected_miner_uids = list(set(assignments[random_key][:5]))
+                print(f"Copying assignments of UID:{random_key}")
+            else:
+                validator_uids = self.commune_network.get_validator_uids() 
+                miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
+                miner_vali_ratio = 5
+                selected_miner_uids = random.sample(miner_uids, miner_vali_ratio)
+                print(f"No assignments found to copy. Generating random sample of size:{miner_vali_ratio}")
         
-    #     return selected_miner_uids
+        return selected_miner_uids
 
     def check_and_update_model(self):
         if self.hf_manager.check_for_new_submissions(self.hf_manager.averaged_model_repo_id):
             print("Averaged model updated on Hugging Face. Pulling latest model...")
             self.hf_manager.pull_latest_model()
             time.sleep(10)  # Give enough time for pull
-            new_model = self.hf_manager.update_model(self.model)
+            new_model = self.hf_manager.update_model(self.model) #TODO add try except failsafe here
             if new_model is not None:
                 self.model = new_model
                 self.model = self.model.to(self.device)
@@ -137,6 +138,7 @@ class ModelValidator:
     def validate_and_score(self):
         print("Receiving Gradients from chain")
         self.commune_network.sync(lite=True)
+        self.hf_manager.clean_repo('gradient')
 
         # Fetch and process assignments
         #try:
@@ -144,9 +146,9 @@ class ModelValidator:
         # except:
             # assignments = None
         
-
-        validator_uids = self.commune_network.get_validator_uids()
-        miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
+        all_uids = [i for i in range(len(self.commune_network.hotkeys))]
+        miner_uids, _ = self.commune_network.check_valis_or_miners(all_uids, repo_type="miner")
+        # miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
 
         # if assignments is not None:
         #     selected_miner_uids = self.get_selected_miner_uids(assignments)
@@ -270,7 +272,7 @@ class ModelValidator:
         # Push the updated model to Hugging Face
         #try:
         model_gradients_path = os.path.abspath(os.path.join(
-                self.hf_manager.get_local_gradient_directory(), "gradients.pt"
+                self.hf_manager.get_local_gradient_directory(), "validator_gradients.pt"
             ))
         
         loss_path = os.path.abspath(os.path.join(
@@ -281,7 +283,7 @@ class ModelValidator:
         torch.save(lora_weights, model_gradients_path) #FIXME validator should only send Dora weights
         torch.save(final_averaged_loss, loss_path)
 
-        self.hf_manager.push_gradients(["gradients.pt", "loss.pt"])
+        self.hf_manager.push_gradients(["validator_gradients.pt", "loss.pt"])
         print("Successfully pushed the updated model to Hugging Face.")
         
         if self.commune_network.should_set_weights():

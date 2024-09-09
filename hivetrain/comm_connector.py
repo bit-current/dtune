@@ -15,6 +15,7 @@ from typing import Any
 import sys
 import random 
 from time import sleep
+from huggingface_hub import HfApi
 
 
 def retry(max_retries: int | None, retry_exceptions: list[type]):
@@ -138,6 +139,7 @@ class CommuneNetwork:
         with cls._lock:
             
             #cls.client = CommuneClient(url="wss://commune-api-node-6.communeai.net")
+            cls.hf_api = HfApi()
             cls.keypair = classic_load_key(config.key_name) #TODO env var me TODO add assertion that key loaded well?
             cls.netuid = config.netuid
             
@@ -325,3 +327,32 @@ class CommuneNetwork:
             return
 
         cls.stakes = cls.sort_and_extract_attribute(modules, "stake")
+
+    @classmethod
+    def check_valis_or_miners(cls, suspected_uids, repo_type="vali"):
+        false_repos = []
+        valid_repo_paths = {}
+        for uid in suspected_uids:
+            hf_repo = cls.names[uid]
+            if hf_repo is None:
+                false_repos.append(uid)
+                continue 
+            
+            #TODO add try except here
+            repo_files = cls.hf_api.list_repo_files(hf_repo)
+
+            if repo_type == "miner":
+                if "gradients.pt" in repo_files:
+                    valid_repo_paths[uid] = hf_repo
+                else:
+                    false_repos.append(uid)
+            elif repo_type == "vali":
+                if "validator_gradients.pt" in repo_files:
+                    valid_repo_paths[uid] = hf_repo
+                else:
+                    false_repos.append(uid)
+
+        filtered_uids = [uid for uid in suspected_uids if uid not in false_repos]
+
+        return filtered_uids, valid_repo_paths
+        

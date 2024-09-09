@@ -341,6 +341,64 @@ class HFManager:
         except Exception as e:
             print(f"Error receiving gradients from Hugging Face: {e}")
 
+    def clean_repo(self, repo_name='gradient'):
+        """
+        Deletes all files in the specified repository, squashes its history,
+        and prepares it for a fresh start.
+        
+        :param repo_name: The name of the repository to clean ('gradient', 'averaged_model', or 'averaged_miner_assignment')
+        """
+        if repo_name == 'gradient':
+            repo = self.gradient_repo
+            local_dir = self.gradient_repo_local
+        elif repo_name == 'averaged_model':
+            repo = self.averaged_model_repo
+            local_dir = self.averaged_model_repo_local
+        elif repo_name == 'averaged_miner_assignment':
+            repo = self.averaged_miner_assignment_repo
+            local_dir = self.averaged_miner_assignment_repo_local
+        else:
+            raise ValueError("Invalid repo_name. Choose 'gradient', 'averaged_model', or 'averaged_miner_assignment'")
+
+        try:
+            # Step 1: Remove all files in the local repository
+            for item in os.listdir(local_dir):
+                item_path = os.path.join(local_dir, item)
+                if os.path.isfile(item_path):
+                    os.remove(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+
+            # Step 2: Commit the deletion of all files
+            repo.git_add(".")
+            repo.git_commit("Remove all files for fresh start")
+
+            # Step 3: Create an orphan branch
+            subprocess.run(["git", "checkout", "--orphan", "temp_branch"], cwd=local_dir, check=True)
+
+            # Step 4: Add and commit an empty state
+            open(os.path.join(local_dir, ".gitkeep"), "w").close()  # Create an empty .gitkeep file
+            repo.git_add(".")
+            repo.git_commit("Initial commit for fresh start")
+
+            # Step 5: Delete the old branch and rename the temp branch
+            current_branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], 
+                                            cwd=local_dir, capture_output=True, text=True).stdout.strip()
+            subprocess.run(["git", "branch", "-D", current_branch], cwd=local_dir, check=True)
+            subprocess.run(["git", "branch", "-m", "main"], cwd=local_dir, check=True)
+
+            # Step 6: Force push to remote
+            self.git_push_force(repo)
+
+            # Step 7: Clean up
+            subprocess.run(["git", "gc", "--aggressive", "--prune=all"], cwd=local_dir, check=True)
+
+            print(f"Repository {repo_name} has been cleaned and its history has been reset.")
+
+        except Exception as e:
+            print(f"An error occurred while cleaning the repository: {str(e)}")
+            raise
+
 
     
 
