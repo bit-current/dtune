@@ -114,8 +114,17 @@ comx module update runtime_key 16 --name "$WEIGHT_REPO"
 wandb login $WANDB_TOKEN
 ```
  
-### Step 7: Set up huggingface
+### Step 7.1: Make sure git is setup
 
+```
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+git config --global credential.helper store
+```
+
+### Step 7.2: Set up huggingface
+
+Make sure to pick Yes when asked about setting a git token
 ```
 huggingface-cli login --token $HF_TOKEN
 ```
