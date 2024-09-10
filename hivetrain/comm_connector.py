@@ -185,14 +185,9 @@ class CommuneNetwork:
         try:
             print(f"Scores: {scores}")
             #chain_weights = torch.zeros(cls.subtensor.subnetwork_n(netuid=cls.metagraph.netuid))
-            min_new_score = min(scores.values())
-            max_new_score = max(scores.values())
-            if min_new_score == max_new_score:
-                # All scores are the same, assign equal weights
-                normalized_new_scores = {k: 1.0 for k in scores}
-            else:
-                # Perform normalization as before
-                normalized_new_scores = {k: (v - min_new_score) / (max_new_score - min_new_score) for k, v in scores.items()}            
+            sum_weights = sum(scores)
+            # perform a simple normalization
+            normalized_new_scores = {k: v/sum_weights for k, v in scores.items()}            
             print(f"Normalized: {normalized_new_scores}")
 
 
