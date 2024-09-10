@@ -129,21 +129,19 @@ class HFManager:
 
     def git_push_force(self, repo):
         """
-        Executes a git push --force command using subprocess.
+        Executes a git push --force command using subprocess, setting the upstream branch if necessary.
         """
         try:
-            command = ["git", "push", "--force"]
-            process = subprocess.Popen(
+            command = ["git", "push", "--set-upstream", "origin", "main", "--force"]
+            process = subprocess.run(
                 command,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                encoding="utf-8",
+                text=True,
+                check=True,
                 cwd=repo.local_dir,
             )
-            stdout, stderr = process.communicate()
-            if process.returncode != 0:
-                raise subprocess.CalledProcessError(process.returncode, command, output=stdout, stderr=stderr)
-            print(f"Force push successful: {stdout}")
+            print(f"Force push successful: {process.stdout}")
         except subprocess.CalledProcessError as e:
             print(f"Force push failed: {e.stderr}")
         except Exception as e:
@@ -341,7 +339,7 @@ class HFManager:
         except Exception as e:
             print(f"Error receiving gradients from Hugging Face: {e}")
 
-    def clean_repo(self, repo_name='gradient'):
+    def clean_repo(self, repo_name):
         """
         Deletes all files in the specified repository, squashes its history,
         and prepares it for a fresh start.
@@ -361,36 +359,53 @@ class HFManager:
             raise ValueError("Invalid repo_name. Choose 'gradient', 'averaged_model', or 'averaged_miner_assignment'")
 
         try:
-            # Step 1: Remove all files in the local repository
+            # Step 1: Ensure we're on the main branch
+            subprocess.run(["git", "checkout", "main"], cwd=local_dir, check=True)
+
+            # Step 2: Remove all files except .git
             for item in os.listdir(local_dir):
                 item_path = os.path.join(local_dir, item)
-                if os.path.isfile(item_path):
-                    os.remove(item_path)
-                elif os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
+                if item != '.git':
+                    if os.path.isfile(item_path) or os.path.islink(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
 
-            # Step 2: Commit the deletion of all files
-            repo.git_add(".")
-            repo.git_commit("Remove all files for fresh start")
+            # Step 3: Stage all changes
+            subprocess.run(["git", "add", "-A"], cwd=local_dir, check=True)
 
-            # Step 3: Create an orphan branch
-            subprocess.run(["git", "checkout", "--orphan", "temp_branch"], cwd=local_dir, check=True)
+            # Step 4: Check if there are changes to commit
+            status = subprocess.run(["git", "status", "--porcelain"], cwd=local_dir, capture_output=True, text=True)
+            if status.stdout.strip():
+                # There are changes to commit
+                subprocess.run(["git", "commit", "-m", "Remove all files for fresh start"], cwd=local_dir, check=True)
 
-            # Step 4: Add and commit an empty state
-            open(os.path.join(local_dir, ".gitkeep"), "w").close()  # Create an empty .gitkeep file
-            repo.git_add(".")
-            repo.git_commit("Initial commit for fresh start")
+            # Step 5: Create a new orphan branch
+            new_branch = "fresh_start"
+            subprocess.run(["git", "checkout", "--orphan", new_branch], cwd=local_dir, check=True)
 
-            # Step 5: Delete the old branch and rename the temp branch
-            current_branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], 
-                                            cwd=local_dir, capture_output=True, text=True).stdout.strip()
-            subprocess.run(["git", "branch", "-D", current_branch], cwd=local_dir, check=True)
-            subprocess.run(["git", "branch", "-m", "main"], cwd=local_dir, check=True)
+            # Step 6: Remove all files from the new branch (should be empty already, but just in case)
+            for item in os.listdir(local_dir):
+                item_path = os.path.join(local_dir, item)
+                if item != '.git':
+                    if os.path.isfile(item_path) or os.path.islink(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
 
-            # Step 6: Force push to remote
+            # Step 7: Create an empty .gitkeep file and commit it
+            open(os.path.join(local_dir, ".gitkeep"), "w").close()
+            subprocess.run(["git", "add", ".gitkeep"], cwd=local_dir, check=True)
+            subprocess.run(["git", "commit", "-m", "Initial commit for fresh start"], cwd=local_dir, check=True)
+
+            # Step 8: Rename the new branch to main
+            subprocess.run(["git", "branch", "-D", "main"], cwd=local_dir, check=True)
+            subprocess.run(["git", "branch", "-m", new_branch, "main"], cwd=local_dir, check=True)
+
+            # Step 9: Force push to remote
             self.git_push_force(repo)
 
-            # Step 7: Clean up
+            # Step 10: Clean up
             subprocess.run(["git", "gc", "--aggressive", "--prune=all"], cwd=local_dir, check=True)
 
             print(f"Repository {repo_name} has been cleaned and its history has been reset.")
@@ -398,6 +413,7 @@ class HFManager:
         except Exception as e:
             print(f"An error occurred while cleaning the repository: {str(e)}")
             raise
+
 
 
     

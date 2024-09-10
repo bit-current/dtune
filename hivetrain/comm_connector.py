@@ -338,8 +338,11 @@ class CommuneNetwork:
                 false_repos.append(uid)
                 continue 
             
-            #TODO add try except here
-            repo_files = cls.hf_api.list_repo_files(hf_repo)
+            try:
+                repo_files = cls.hf_api.list_repo_files(hf_repo)
+            except:
+                false_repos.append(uid)
+                continue
 
             if repo_type == "miner":
                 if "gradients.pt" in repo_files:
