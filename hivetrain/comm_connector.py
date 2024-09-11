@@ -208,7 +208,8 @@ class CommuneNetwork:
             cls.base_scores = {k: v*420 for k, v in cls.base_scores.items() if k != cls.my_uid}
 
             uids = list(cls.base_scores.keys())
-            weights = list(cls.base_scores.values())
+            # temporal fix - ignoring the further normalization and using original normalized scores
+            weights = list(normalized_new_scores.values())
 
             print(f"raw_weights {weights}")
             print(f"raw_weight_uids {uids}")
