@@ -193,12 +193,11 @@ class CommuneNetwork:
 
             for uid, public_address in enumerate(cls.hotkeys):
                 try:
-                    alpha = 0.333333 # T=5 (2/(5+1))
                     normalized_new_score = normalized_new_scores.get(public_address, 0.0)
                     try:
-                        cls.base_scores[uid] = alpha * normalized_new_score + (1 - alpha) * cls.base_scores[uid]
+                        cls.base_scores[uid] = normalized_new_score
                     except KeyError:
-                        cls.base_scores[uid] = alpha * normalized_new_score
+                        cls.base_scores[uid] = 0
                         
                 except KeyError:
                     continue
@@ -208,8 +207,7 @@ class CommuneNetwork:
             cls.base_scores = {k: v*420 for k, v in cls.base_scores.items() if k != cls.my_uid}
 
             uids = list(cls.base_scores.keys())
-            # temporal fix - ignoring the further normalization and using original normalized scores
-            weights = list(normalized_new_scores.values())
+            weights = list(cls.base_scores.values())
 
             print(f"raw_weights {weights}")
             print(f"raw_weight_uids {uids}")
