@@ -164,7 +164,8 @@ class CommuneNetwork:
                     print(f"Key: {cls.my_hotkey} is not registered on netuid {config.netuid}. Please register the hotkey before trying again")
                     exit()
             
-            cls.device="cpu"
+            cls.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
             cls.base_scores = {}
         # Additional initialization logic here
 
@@ -183,13 +184,12 @@ class CommuneNetwork:
         '''
         
         try:
-            print(f"Scores: {scores}")
+            print(f"Scores: {scores.values()}")
             #chain_weights = torch.zeros(cls.subtensor.subnetwork_n(netuid=cls.metagraph.netuid))
-            sum_weights = sum(scores)
+            sum_weights = sum(scores.values())
             # perform a simple normalization
             normalized_new_scores = {k: v/sum_weights for k, v in scores.items()}            
             print(f"Normalized: {normalized_new_scores}")
-
 
             for uid, public_address in enumerate(cls.hotkeys):
                 try:
@@ -204,7 +204,7 @@ class CommuneNetwork:
 
             # Process the raw weights to final_weights via subtensor limitations.
             #cls.base_scores
-            cls.base_scores = {k: v*420 for k, v in cls.base_scores.items() if k != cls.my_uid}
+            cls.base_scores = {k: v*100 for k, v in cls.base_scores.items() if k != cls.my_uid}
 
             uids = list(cls.base_scores.keys())
             weights = list(cls.base_scores.values())
@@ -216,8 +216,7 @@ class CommuneNetwork:
             cls.client.vote(key=cls.keypair, uids=uids, weights=weights, netuid=cls.netuid)
             cls.last_set_block = cls.last_block
             print("Weights Set !")
-
-                
+      
         except Exception as e:
             print(f"Error setting weights: {e}")
 
