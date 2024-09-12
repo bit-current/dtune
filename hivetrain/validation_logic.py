@@ -138,7 +138,7 @@ class ModelValidator:
     def validate_and_score(self):
         print("Receiving Gradients from chain")
         self.commune_network.sync(lite=True)
-        self.hf_manager.clean_repo('gradient')
+        
 
         # Fetch and process assignments
         #try:
@@ -293,6 +293,7 @@ class ModelValidator:
     def start_periodic_validation(self):
 
         wandb.init(project="distributed-training-v4-1-1-1",entity="alizawahry1", name=f"validator-{str(time.time())}")
+        self.hf_manager.clean_repo('gradient')
         while True:
 
             start_time = time.time()            

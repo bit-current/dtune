@@ -94,7 +94,25 @@ class HFManager:
         # Get the latest commit SHA for synchronization checks
         self.latest_model_commit_sha = self.get_latest_commit_sha(self.gradient_repo_id)
 
-        
+        self.check_git_lfs()
+
+        # Initialize Git LFS for each repository
+        self.init_git_lfs(self.gradient_repo_local)
+        self.init_git_lfs(self.averaged_model_repo_local)
+        self.init_git_lfs(self.averaged_miner_assignment_repo_local)
+
+    def check_git_lfs(self):
+        try:
+            subprocess.run(["git", "lfs", "version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError:
+            raise RuntimeError("Git LFS is not installed. Please install it: https://git-lfs.github.com/")
+
+    def init_git_lfs(self, repo_path):
+        if repo_path:
+            subprocess.run(["git", "lfs", "install"], cwd=repo_path, check=True)
+            subprocess.run(["git", "lfs", "track", "*.pt"], cwd=repo_path, check=True)
+            subprocess.run(["git", "add", ".gitattributes"], cwd=repo_path, check=True)
+
     @staticmethod
     def clear_hf_cache():
         # Get the cache directory
@@ -144,6 +162,8 @@ class HFManager:
             print(f"Force push successful: {process.stdout}")
         except subprocess.CalledProcessError as e:
             print(f"Force push failed: {e.stderr}")
+            if "remote: error: GH001" in e.stderr:
+                print("The repository might have Git LFS disabled. Please enable it in the repository settings.")
         except Exception as e:
             print(f"An error occurred during force push: {str(e)}")
 
@@ -156,10 +176,11 @@ class HFManager:
         try:
             # Stage the changes
             if type(files_to_send) == str:
-                self.gradient_repo.git_add(files_to_send)
-            elif type(files_to_send) == list:
-                for file_to_send in files_to_send:
-                    self.gradient_repo.git_add(file_to_send)            
+                files_to_send = [files_to_send]
+            
+            for file_to_send in files_to_send:
+                subprocess.run(["git", "lfs", "track", file_to_send], cwd=self.gradient_repo_local, check=True)
+                self.gradient_repo.git_add(file_to_send)            
             
             # Commit with a unified message
             self.gradient_repo.git_commit("Squashed commits - update model gradients")
@@ -179,10 +200,11 @@ class HFManager:
         try:
             # Stage the changes
             if type(path_to_model) == str:
-                self.averaged_model_repo.git_add(path_to_model)
-            elif type(path_to_model) == list:
-                for path_to_add in path_to_model:
-                    self.averaged_model_repo.git_add(path_to_add)
+                path_to_model = [path_to_model]
+                
+            for path_to_add in path_to_model:
+                subprocess.run(["git", "lfs", "track", path_to_add], cwd=self.averaged_model_repo_local, check=True)
+                self.averaged_model_repo.git_add(path_to_add)
             
             # Squash commits into a single one before pushing
             
@@ -205,10 +227,11 @@ class HFManager:
         try:
             # Stage the changes
             if type(path_to_assignment) == str:
-                self.averaged_miner_assignment_repo.git_add(path_to_assignment)
-            elif type(path_to_assignment) == list:
-                for path_to_add in path_to_assignment:
-                    self.averaged_miner_assignment_repo.git_add(path_to_add)
+                path_to_assignment = [path_to_assignment]
+
+            for path_to_add in path_to_assignment:
+                subprocess.run(["git", "lfs", "track", path], cwd=self.averaged_miner_assignment_repo_local, check=True)
+                self.averaged_miner_assignment_repo.git_add(path_to_add)
             
             # Squash commits into a single one before pushing
             
