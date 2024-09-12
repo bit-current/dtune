@@ -211,6 +211,7 @@ class CommuneNetwork:
 
             print(f"raw_weights {weights}")
             print(f"raw_weight_uids {uids}")
+            print(f"sum of raw_weights: {sum(weights)}")
 
             # Set weights on comm
             cls.client.vote(key=cls.keypair, uids=uids, weights=weights, netuid=cls.netuid)
