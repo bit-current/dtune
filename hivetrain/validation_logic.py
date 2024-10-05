@@ -276,12 +276,18 @@ class ModelValidator:
                 self.hf_manager.get_local_gradient_directory(), "validator_gradients.pt"
             ))
         
+        # version to push to averager
+        model_gradients_averager_path = os.path.abspath(os.path.join(
+                self.hf_manager.get_local_gradient_directory(), "averaged_model.pt"
+            ))
+        
         loss_path = os.path.abspath(os.path.join(
                 self.hf_manager.get_local_gradient_directory(), "loss.pt"
             ))
             
         lora_weights = {k: v for k, v in self.model.state_dict().items() if 'lora' in k}
         torch.save(lora_weights, model_gradients_path) #FIXME validator should only send Dora weights
+        torch.save(lora_weights, model_gradients_averager_path) #FIXME validator should only send Dora weights
         torch.save(final_averaged_loss, loss_path)
 
         self.hf_manager.push_gradients(["validator_gradients.pt", "loss.pt"])
