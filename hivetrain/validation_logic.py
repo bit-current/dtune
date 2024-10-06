@@ -293,6 +293,8 @@ class ModelValidator:
         self.hf_manager.push_gradients(["validator_gradients.pt", "loss.pt"])
         print("Successfully pushed the updated model to Hugging Face.")
         self.hf_manager.push_averaged_model('averaged_model.pt')
+        print("Successfully pushed the averaged model to Hugging Face.")
+
 
         
         if self.commune_network.should_set_weights():
