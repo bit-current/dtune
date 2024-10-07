@@ -140,7 +140,7 @@ class CommuneNetwork:
             
             #cls.client = CommuneClient(url="wss://commune-api-node-6.communeai.net")
             cls.hf_api = HfApi()
-            cls.keypair = classic_load_key(config.key_name) #TODO env var me TODO add assertion that key loaded well?
+            cls.keypair = classic_load_key(config.key_name, config.key_password) #TODO env var me TODO add assertion that key loaded well?
             cls.netuid = config.netuid
             
             cls.config = config
