@@ -13,6 +13,7 @@ def add_meta_miner_args(parser):
     ## Standard Pytorch
     parser.add_argument("--miner.batch_size", type=int, default=64, help="Batch size per forward/backward pass") 
     parser.add_argument("--miner.epochs", type=int, default=100, help="Number of epochs to train")
+    parser.add_argument("--miner.password", type=str, default=None, help="password to key if any")
     parser.add_argument("--miner.learning_rate", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--device", type=str, default="cuda", help="Device to use for inference/training")
 
