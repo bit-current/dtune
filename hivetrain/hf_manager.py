@@ -203,7 +203,7 @@ class HFManager:
                 path_to_model = [path_to_model]
                 # replacing local averaging repo with validator repo to avoid conflict with pulling from average repo
             for path_to_add in path_to_model:
-                subprocess.run(["git", "lfs", "track", path_to_add], cwd=self.gradient_repo_local, check=True)
+                subprocess.run(["git", "lfs", "track", path_to_add], cwd=self.averaged_model_repo_local, check=True)
                 self.averaged_model_repo.git_add(path_to_add)
             
             # Squash commits into a single one before pushing

@@ -278,7 +278,7 @@ class ModelValidator:
         
         # version to push to averager
         model_gradients_averager_path = os.path.abspath(os.path.join(
-                self.hf_manager.get_local_gradient_directory(), "averaged_model.pt"
+                self.hf_manager.get_averaged_model_directory(), "averaged_model.pt"
             ))
         
         loss_path = os.path.abspath(os.path.join(
