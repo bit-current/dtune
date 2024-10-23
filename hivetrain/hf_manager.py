@@ -1,19 +1,18 @@
 import os
 import torch
 import hashlib
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
-from huggingface_hub import HfApi, Repository, HfFolder
-from huggingface_hub import hf_hub_download, scan_cache_dir
+from datetime import datetime, timezone, timedelta
+from huggingface_hub import HfApi, Repository, HfFolder, hf_hub_download, scan_cache_dir
 import shutil
 import subprocess
 import warnings
 
 # Option 1: Ignore all warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 load_dotenv()
+
 
 class HFManager:
     """
@@ -22,17 +21,17 @@ class HFManager:
 
     def __init__(
         self,
-        local_dir=".",#gradients local
+        local_dir=".",  # gradients local
         hf_token=os.getenv("HF_TOKEN"),
-        gradient_repo_id=None,#gradients HF
-        averaged_model_repo_id=None,#averaged HF
-        gradient_repo_local=None,#averaged local
+        gradient_repo_id=None,  # gradients HF
+        averaged_model_repo_id=None,  # averaged HF
+        gradient_repo_local=None,  # averaged local
         averaged_model_repo_local=None,
-        averaged_miner_assignment_repo_id = None,
-        averaged_miner_assignment_repo_local = None,
-        device="cuda" if torch.cuda.is_available() else "cpu"
+        averaged_miner_assignment_repo_id=None,
+        averaged_miner_assignment_repo_local=None,
+        device="cuda" if torch.cuda.is_available() else "cpu",
     ):
-    
+
         # Initializes the HFManager with the necessary repository and authentication details.
         self.gradient_repo_id = gradient_repo_id
         self.averaged_model_repo_id = averaged_model_repo_id
@@ -42,8 +41,8 @@ class HFManager:
         self.averaged_model_repo_local = averaged_model_repo_local
         self.averaged_miner_assignment_repo_local = averaged_miner_assignment_repo_local
         self.averaged_miner_assignment_repo_id = averaged_miner_assignment_repo_id
-        #self.local_dir = local_dir
-        
+        # self.local_dir = local_dir
+
         self.latest_commit_sha = {}
 
         # Define the local directory structure based on repository IDs but only do clone personal repo if miner
@@ -51,21 +50,24 @@ class HFManager:
             self.gradient_repo_local = self.gradient_repo_id.split("/")[-1]
             self.gradient_repo_local = os.path.join(local_dir, self.gradient_repo_local)
 
-        
         if self.gradient_repo_id is not None:
-            if not os.path.exists(self.gradient_repo_local): 
+            if not os.path.exists(self.gradient_repo_local):
                 os.makedirs(self.gradient_repo_local)
-                
-        if (self.gradient_repo_local is not None) and (self.gradient_repo_id is not None):
+
+        if (self.gradient_repo_local is not None) and (
+            self.gradient_repo_id is not None
+        ):
             self.gradient_repo = Repository(
                 local_dir=self.gradient_repo_local,
                 clone_from=self.gradient_repo_id,
                 use_auth_token=self.hf_token,
             )
-            
+
         if self.averaged_model_repo_local is None:
             self.averaged_model_repo_local = averaged_model_repo_id.split("/")[-1]
-            self.averaged_model_repo_local = os.path.join(local_dir, self.averaged_model_repo_local)
+            self.averaged_model_repo_local = os.path.join(
+                local_dir, self.averaged_model_repo_local
+            )
 
         if not os.path.exists(self.averaged_model_repo_local):
             os.makedirs(self.averaged_model_repo_local)
@@ -77,9 +79,15 @@ class HFManager:
                 use_auth_token=hf_token,
             )
 
-        if (self.averaged_miner_assignment_repo_local is None) and (self.averaged_miner_assignment_repo_id is not None):
-            self.averaged_miner_assignment_repo_local = averaged_miner_assignment_repo_id.split("/")[-1]
-            self.averaged_miner_assignment_repo_local = os.path.join(local_dir, self.averaged_miner_assignment_repo_local)
+        if (self.averaged_miner_assignment_repo_local is None) and (
+            self.averaged_miner_assignment_repo_id is not None
+        ):
+            self.averaged_miner_assignment_repo_local = (
+                averaged_miner_assignment_repo_id.split("/")[-1]
+            )
+            self.averaged_miner_assignment_repo_local = os.path.join(
+                local_dir, self.averaged_miner_assignment_repo_local
+            )
 
         if self.averaged_miner_assignment_repo_local is not None:
             if not os.path.exists(self.averaged_miner_assignment_repo_local):
@@ -105,9 +113,16 @@ class HFManager:
 
     def check_git_lfs(self):
         try:
-            subprocess.run(["git", "lfs", "version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["git", "lfs", "version"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
         except subprocess.CalledProcessError:
-            raise RuntimeError("Git LFS is not installed. Please install it: https://git-lfs.github.com/")
+            raise RuntimeError(
+                "Git LFS is not installed. Please install it: https://git-lfs.github.com/"
+            )
 
     def init_git_lfs(self, repo_path):
         if repo_path:
@@ -139,9 +154,9 @@ class HFManager:
         original_dir = os.getcwd()
         try:
             os.chdir(repo_path)
-            subprocess.run(['git', 'config', 'pull.rebase', 'true'], check=True)   
-            subprocess.run(['git', 'pull', '--force'], check=True)
-            subprocess.run(['git', 'lfs', 'prune'], check=True)
+            subprocess.run(["git", "config", "pull.rebase", "true"], check=True)
+            subprocess.run(["git", "pull", "--force"], check=True)
+            subprocess.run(["git", "lfs", "prune"], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Failed to prune Git LFS objects: {e}")
         finally:
@@ -165,10 +180,11 @@ class HFManager:
         except subprocess.CalledProcessError as e:
             print(f"Force push failed: {e.stderr}")
             if "remote: error: GH001" in e.stderr:
-                print("The repository might have Git LFS disabled. Please enable it in the repository settings.")
+                print(
+                    "The repository might have Git LFS disabled. Please enable it in the repository settings."
+                )
         except Exception as e:
             print(f"An error occurred during force push: {str(e)}")
-
 
     def push_gradients(self, files_to_send):
         """
@@ -179,22 +195,28 @@ class HFManager:
             # Stage the changes
             if type(files_to_send) == str:
                 files_to_send = [files_to_send]
-            
+
             for file_to_send in files_to_send:
-                subprocess.run(["git", "lfs", "track", file_to_send], cwd=self.gradient_repo_local, check=True)
-                self.gradient_repo.git_add(file_to_send)            
-            
+                subprocess.run(
+                    ["git", "lfs", "track", file_to_send],
+                    cwd=self.gradient_repo_local,
+                    check=True,
+                )
+                self.gradient_repo.git_add(file_to_send)
+
             # Commit with a unified message
             self.gradient_repo.git_commit("Squashed commits - update model gradients")
-            
+
             # Push the changes to the repository
             self.git_push_force(self.gradient_repo)
 
             self.api.super_squash_history(repo_id=self.gradient_repo_id)
-            
+
             # Prune unneeded Git LFS objects and pull the squashed version locally
-            self.git_prune_and_refresh(self.gradient_repo_local)  # Clean up unused LFS objects       
-            
+            self.git_prune_and_refresh(
+                self.gradient_repo_local
+            )  # Clean up unused LFS objects
+
         except Exception as e:
             print(f"Failed to push changes: {e}")
 
@@ -205,53 +227,68 @@ class HFManager:
                 path_to_model = [path_to_model]
                 # replacing local averaging repo with validator repo to avoid conflict with pulling from average repo
             for path_to_add in path_to_model:
-                subprocess.run(["git", "lfs", "track", path_to_add], cwd=self.averaged_model_repo_local, check=True)
+                subprocess.run(
+                    ["git", "lfs", "track", path_to_add],
+                    cwd=self.averaged_model_repo_local,
+                    check=True,
+                )
                 self.averaged_model_repo.git_add(path_to_add)
-            
+
             # Squash commits into a single one before pushing
-            
+
             # Commit with a unified message
-            self.averaged_model_repo.git_commit("Squashed commits - update model gradients")
-            
+            self.averaged_model_repo.git_commit(
+                "Squashed commits - update model gradients"
+            )
+
             self.git_push_force(self.averaged_model_repo)
 
             self.api.super_squash_history(repo_id=self.averaged_model_repo_id)
 
             # Prune unneeded Git LFS objects and pull the squashed version locally
             self.git_prune_and_refresh(self.averaged_model_repo_local)
-            
+
             # Push the changes to the repository
-            
+
         except Exception as e:
             print(f"Failed to push changes: {e}")
 
-    def push_miner_assignemnts(self, path_to_assignment, commit_message="Pushing model to Hub"):
+    def push_miner_assignemnts(
+        self, path_to_assignment, commit_message="Pushing model to Hub"
+    ):
         try:
             # Stage the changes
             if type(path_to_assignment) == str:
                 path_to_assignment = [path_to_assignment]
 
             for path_to_add in path_to_assignment:
-                subprocess.run(["git", "lfs", "track", path], cwd=self.averaged_miner_assignment_repo_local, check=True)
+                subprocess.run(
+                    ["git", "lfs", "track", path],
+                    cwd=self.averaged_miner_assignment_repo_local,
+                    check=True,
+                )
                 self.averaged_miner_assignment_repo.git_add(path_to_add)
-            
+
             # Squash commits into a single one before pushing
-            
+
             # Commit with a unified message
-            self.averaged_miner_assignment_repo.git_commit("Squashed commits - update model gradients")
-            
+            self.averaged_miner_assignment_repo.git_commit(
+                "Squashed commits - update model gradients"
+            )
+
             self.git_push_force(self.averaged_miner_assignment_repo)
 
-            self.api.super_squash_history(repo_id=self.averaged_miner_assignment_repo_id)
+            self.api.super_squash_history(
+                repo_id=self.averaged_miner_assignment_repo_id
+            )
 
             # Prune unneeded Git LFS objects and pull the squashed version locally
             self.git_prune_and_refresh(self.averaged_miner_assignment_repo_local)
-            
+
             # Push the changes to the repository
-            
+
         except Exception as e:
             print(f"Failed to push changes: {e}")
-
 
     def get_latest_commit_sha(self, repo):
         """
@@ -266,7 +303,9 @@ class HFManager:
             print(f"Failed to fetch latest commit SHA: {e}")
             return None
 
-    def check_for_new_submissions(self, repo): #FIXME check we're not using this double FIXME make it use a dict
+    def check_for_new_submissions(
+        self, repo
+    ):  # FIXME check we're not using this double FIXME make it use a dict
         ## Make valis check for new assignments. To start a new vali cycle
         """
         Compares the current commit SHA with the latest to determine if there are new submissions.
@@ -300,7 +339,9 @@ class HFManager:
                 print(f"Model updated from local path: {model_path}")
                 return model
             else:
-                raise FileNotFoundError(f"{model_file_name} not found in the repository.")
+                raise FileNotFoundError(
+                    f"{model_file_name} not found in the repository."
+                )
         except FileNotFoundError as e:
             print(f"Failure to update model: {e}")
         except Exception as er:
@@ -327,62 +368,109 @@ class HFManager:
         except Exception as e:
             print(f"An error occurred while removing the directory: {str(e)}")
         self.averaged_model_repo = Repository(
-                local_dir=self.averaged_model_repo_local,
-                clone_from=self.averaged_model_repo_id,
-                use_auth_token=self.hf_token,
-            )
+            local_dir=self.averaged_model_repo_local,
+            clone_from=self.averaged_model_repo_id,
+            use_auth_token=self.hf_token,
+        )
 
     def pull_latest_assignments(self):
         try:
             shutil.rmtree(self.averaged_miner_assignment_repo_local)
-            print(f"Successfully removed directory: {self.averaged_miner_assignment_repo_local}")
+            print(
+                f"Successfully removed directory: {self.averaged_miner_assignment_repo_local}"
+            )
         except FileNotFoundError:
             print(f"Directory not found: {self.averaged_miner_assignment_repo_local}")
         except Exception as e:
             print(f"An error occurred while removing the directory: {str(e)}")
         self.averaged_miner_assignment_repo = Repository(
-                local_dir=self.averaged_miner_assignment_repo_local,
-                clone_from=self.averaged_miner_assignment_repo_id,
-                use_auth_token=self.hf_token,
+            local_dir=self.averaged_miner_assignment_repo_local,
+            clone_from=self.averaged_miner_assignment_repo_id,
+            use_auth_token=self.hf_token,
+        )
+
+    def receive_gradients(
+        self, miner_repo_id, weights_file_name="gradients.pt", path_only=False
+    ):
+        try:  # TODO Add some garbage collection.
+
+            # Fetch file information
+            file_info = self.api.get_file_info(
+                repo_id=miner_repo_id, filename=weights_file_name
             )
 
-    def receive_gradients(self, miner_repo_id, weights_file_name="gradients.pt", path_only=False):
-        try: #TODO Add some garbage collection.
+            if not file_info:
+                print(f"No file '{weights_file_name}' found in repo '{miner_repo_id}'.")
+                return None
+
+            # Extract the last modified time
+            last_modified_str = (
+                file_info.lastModified
+            )  # This is typically in ISO 8601 format
+            if not last_modified_str:
+                print(
+                    f"Cannot determine last modified time for '{weights_file_name}' in repo '{miner_repo_id}'."
+                )
+                return None
+
+            # Parse the last modified time
+            try:
+                last_modified = datetime.fromisoformat(
+                    last_modified_str.replace("Z", "+00:00")
+                )
+            except ValueError as ve:
+                print(f"Error parsing last modified time: {ve}")
+                return None
+
+            # Current UTC time
+            now = datetime.now(timezone.utc)
+
+            # Current UTC time
+            now = datetime.now(timezone.utc)
+
+            # Check if the file was modified within the last 36 hours
+            if now - last_modified > timedelta(hours=12):
+                print(
+                    f"Gradients file '{weights_file_name}' in repo '{miner_repo_id}' was not updated in the last 36 hours. Skipping"
+                )
+                return None
+
             # Download the gradients file from Hugging Face Hub
             weights_file_path = hf_hub_download(
                 repo_id=miner_repo_id, filename=weights_file_name, use_auth_token=True
             )
             # Load the gradients directly using torch.load
-            
+
             if path_only:
                 return weights_file_path
             else:
                 miner_weights = torch.load(weights_file_path, map_location=self.device)
                 os.remove(weights_file_path)
                 return miner_weights
-        
+
         except Exception as e:
             print(f"Error receiving gradients from Hugging Face: {e}")
-
 
     def clean_repo(self, repo_name):
         """
         Deletes all files in the specified repository, squashes its history,
         and prepares it for a fresh start.
-        
+
         :param repo_name: The name of the repository to clean ('gradient', 'averaged_model', or 'averaged_miner_assignment')
         """
-        if repo_name == 'gradient':
+        if repo_name == "gradient":
             repo = self.gradient_repo
             local_dir = self.gradient_repo_local
-        elif repo_name == 'averaged_model':
+        elif repo_name == "averaged_model":
             repo = self.averaged_model_repo
             local_dir = self.averaged_model_repo_local
-        elif repo_name == 'averaged_miner_assignment':
+        elif repo_name == "averaged_miner_assignment":
             repo = self.averaged_miner_assignment_repo
             local_dir = self.averaged_miner_assignment_repo_local
         else:
-            raise ValueError("Invalid repo_name. Choose 'gradient', 'averaged_model', or 'averaged_miner_assignment'")
+            raise ValueError(
+                "Invalid repo_name. Choose 'gradient', 'averaged_model', or 'averaged_miner_assignment'"
+            )
 
         try:
             # Step 1: Ensure we're on the main branch
@@ -391,7 +479,7 @@ class HFManager:
             # Step 2: Remove all files except .git
             for item in os.listdir(local_dir):
                 item_path = os.path.join(local_dir, item)
-                if item != '.git':
+                if item != ".git":
                     if os.path.isfile(item_path) or os.path.islink(item_path):
                         os.remove(item_path)
                     elif os.path.isdir(item_path):
@@ -401,19 +489,30 @@ class HFManager:
             subprocess.run(["git", "add", "-A"], cwd=local_dir, check=True)
 
             # Step 4: Check if there are changes to commit
-            status = subprocess.run(["git", "status", "--porcelain"], cwd=local_dir, capture_output=True, text=True)
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=local_dir,
+                capture_output=True,
+                text=True,
+            )
             if status.stdout.strip():
                 # There are changes to commit
-                subprocess.run(["git", "commit", "-m", "Remove all files for fresh start"], cwd=local_dir, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", "Remove all files for fresh start"],
+                    cwd=local_dir,
+                    check=True,
+                )
 
             # Step 5: Create a new orphan branch
             new_branch = "fresh_start"
-            subprocess.run(["git", "checkout", "--orphan", new_branch], cwd=local_dir, check=True)
+            subprocess.run(
+                ["git", "checkout", "--orphan", new_branch], cwd=local_dir, check=True
+            )
 
             # Step 6: Remove all files from the new branch (should be empty already, but just in case)
             for item in os.listdir(local_dir):
                 item_path = os.path.join(local_dir, item)
-                if item != '.git':
+                if item != ".git":
                     if os.path.isfile(item_path) or os.path.islink(item_path):
                         os.remove(item_path)
                     elif os.path.isdir(item_path):
@@ -422,27 +521,33 @@ class HFManager:
             # Step 7: Create an empty .gitkeep file and commit it
             open(os.path.join(local_dir, ".gitkeep"), "w").close()
             subprocess.run(["git", "add", ".gitkeep"], cwd=local_dir, check=True)
-            subprocess.run(["git", "commit", "-m", "Initial commit for fresh start"], cwd=local_dir, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit for fresh start"],
+                cwd=local_dir,
+                check=True,
+            )
 
             # Step 8: Rename the new branch to main
             subprocess.run(["git", "branch", "-D", "main"], cwd=local_dir, check=True)
-            subprocess.run(["git", "branch", "-m", new_branch, "main"], cwd=local_dir, check=True)
+            subprocess.run(
+                ["git", "branch", "-m", new_branch, "main"], cwd=local_dir, check=True
+            )
 
             # Step 9: Force push to remote
             self.git_push_force(repo)
 
             # Step 10: Clean up
-            subprocess.run(["git", "gc", "--aggressive", "--prune=all"], cwd=local_dir, check=True)
+            subprocess.run(
+                ["git", "gc", "--aggressive", "--prune=all"], cwd=local_dir, check=True
+            )
 
-            print(f"Repository {repo_name} has been cleaned and its history has been reset.")
+            print(
+                f"Repository {repo_name} has been cleaned and its history has been reset."
+            )
 
         except Exception as e:
             print(f"An error occurred while cleaning the repository: {str(e)}")
             raise
-
-
-
-    
 
 
 class LocalHFManager:
@@ -491,15 +596,18 @@ class LocalHFManager:
         else:
             print(f"Model file not found: {model_file_path}")
 
+
 def model_hash(state_dict):
     # Convert the state_dict to CPU to ensure consistency
     cpu_state_dict = {k: v.cpu() for k, v in state_dict.items()}
 
     # Serialize the state_dict to a string
-    serialized_state_dict = str({k: v.numpy().tolist() for k, v in cpu_state_dict.items()})
+    serialized_state_dict = str(
+        {k: v.numpy().tolist() for k, v in cpu_state_dict.items()}
+    )
 
     # Create a hash from the serialized state_dict
     hash_object = hashlib.md5(serialized_state_dict.encode())
     model_hash = hash_object.hexdigest()
-    
+
     return model_hash
