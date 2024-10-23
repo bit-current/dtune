@@ -228,7 +228,15 @@ class ModelValidator:
                 }
                 wandb.log(metrics)
 
-                if loss < self.base_loss or perplexity < self.base_perplexity:
+                # define acceptable loss and perplexity
+                loss_diff_ratio = (loss - self.base_loss) / self.base_loss
+                is_loss_acceptable = loss < self.base_loss or loss_diff_ratio < 0.012 
+
+                # For perplexity
+                perplexity_diff_ratio = (perplexity - self.base_perplexity) / self.base_perplexity
+                is_perplexity_acceptable = perplexity < self.base_perplexity or perplexity_diff_ratio < 0.012
+
+                if is_loss_acceptable or is_perplexity_acceptable:
                     perplexity_score = max(0, self.base_perplexity - perplexity)
                     valid_gradients.append((miner_id, perplexity_score, gradients))
                     self.scores[miner_id] = perplexity_score**2  # Exponentially reward better performing miners
