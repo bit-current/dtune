@@ -2,6 +2,7 @@ import os
 import torch
 import hashlib
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 from huggingface_hub import HfApi, Repository, HfFolder
 from huggingface_hub import hf_hub_download, scan_cache_dir
 import shutil
@@ -346,7 +347,22 @@ class HFManager:
 
     def receive_gradients(self, miner_repo_id, weights_file_name="gradients.pt", path_only=False):
         try: #TODO Add some garbage collection.
-            # Download the gradients file from Hugging Face Hub
+            # Get the commit history for for weight file
+            commit_info = self.api.list_repo_commits(repo_id=miner_repo_id, path=weights_file_name)
+            if not commit_info:
+                print(f"No commit history found for {weights_file_name}")
+                return None
+            
+            # Get the latest commit time
+            latest_commit_time = datetime.fromisoformat(commit_info[0].created_at.replace('Z', '+00:00'))
+            current_time = datetime.now(latest_commit_time.tzinfo)
+
+            # Check if gradients are older than 36 hours
+            if (current_time - latest_commit_time) > timedelta(hours=36):
+                print(f"Rejecting gradients from {miner_repo_id} - last updated {latest_commit_time}")
+                return None
+
+            # Download the gradients file from Hugging Face Hub if gradients not stale
             weights_file_path = hf_hub_download(
                 repo_id=miner_repo_id, filename=weights_file_name, use_auth_token=True
             )
@@ -361,6 +377,7 @@ class HFManager:
         
         except Exception as e:
             print(f"Error receiving gradients from Hugging Face: {e}")
+
 
     def clean_repo(self, repo_name):
         """
