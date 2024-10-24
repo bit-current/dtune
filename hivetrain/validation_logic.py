@@ -227,7 +227,7 @@ class ModelValidator:
                 if is_loss_acceptable or is_perplexity_acceptable:
                     perplexity_score = max(0, self.base_perplexity - perplexity)
                     valid_gradients.append((miner_id, perplexity_score, gradients))
-                    self.scores[miner_id] = perplexity_score**2  # Exponentially reward better performing miners
+                    self.scores[miner_id] = (perplexity_score+0.05)**2  # Exponentially reward better performing miners
                     self.best_losses.append(loss)
                     self.best_perplexities.append(perplexity)
                     self.averaging_weights.append(perplexity_score)
