@@ -253,17 +253,29 @@ class ModelValidator:
             else:
                 print(f"No gradients received from {miner_id}")
 
-        normalization_factor = sum(self.averaging_weights)
+        # normalization_factor = sum(self.averaging_weights)
         # Create gradient updates
+        # accumulated_gradients = {}
+        # for _, ppx_score, gradients in valid_gradients:
+        #     ppx_weight = ppx_score/normalization_factor
+        #     for name, grad in gradients.items():
+        #         if name not in accumulated_gradients:
+        #             accumulated_gradients[name] = grad * ppx_weight
+        #         else:
+        #             accumulated_gradients[name] += grad * ppx_weight
+
         accumulated_gradients = {}
-        for _, ppx_score, gradients in valid_gradients:
-            ppx_weight = ppx_score/normalization_factor
+        normalization_factor = sum(self.scores.items())
+        print("normalization_factor", normalization_factor)
+        print('scores', self.scores.items())
+
+        for score in self.scores.items():
+            ppx_weight = score/normalization_factor
             for name, grad in gradients.items():
                 if name not in accumulated_gradients:
                     accumulated_gradients[name] = grad * ppx_weight
                 else:
                     accumulated_gradients[name] += grad * ppx_weight
-
         # Update the model
         self.update_model_weights(accumulated_gradients)
         print("Evaluating Averaged Loss + Perplexity")
