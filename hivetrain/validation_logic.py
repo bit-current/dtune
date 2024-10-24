@@ -214,7 +214,8 @@ class ModelValidator:
                 }
                 wandb.log(metrics)
                 print(f'loss: {loss}, base_loss: {self.base_loss}')
-                print(f'perplexity: {perplexity}, base_loss: {self.base_perplexity}')
+                print(f'perplexity: {perplexity}, base_perplexity: {self.base_perplexity}')
+                
                 # define acceptable loss and perplexity
                 loss_diff_ratio = (loss - self.base_loss) / self.base_loss
                 is_loss_acceptable = loss < self.base_loss or loss_diff_ratio < 0.012 
@@ -239,6 +240,8 @@ class ModelValidator:
                 os.remove(gradient_path)
             else:
                 print(f"No gradients received from {miner_id}")
+        
+        print('****** old approach')
         print(self.averaging_weights)
         normalization_factor = sum(self.averaging_weights)
         print(normalization_factor)
@@ -252,13 +255,14 @@ class ModelValidator:
         #         else:
         #             accumulated_gradients[name] += grad * ppx_weight
 
+        print('****** new approach')
         accumulated_gradients = {}
-        normalization_factor = sum(self.scores.values())
-        print("normalization_factor", normalization_factor)
-        print('scores', self.scores.values())
+        new_normalization_factor = sum(v for v in self.scores.values() if v > 0)
+        print("normalization_factor:", new_normalization_factor)
+        print('scores', self.scores)
 
         for score in self.scores.values():
-            ppx_weight = score/normalization_factor
+            ppx_weight = score/new_normalization_factor
             for name, grad in gradients.items():
                 if name not in accumulated_gradients:
                     accumulated_gradients[name] = grad * ppx_weight
