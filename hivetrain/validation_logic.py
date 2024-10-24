@@ -139,23 +139,9 @@ class ModelValidator:
         print("Receiving Gradients from chain")
         self.commune_network.sync(lite=True)
         
-
-        # Fetch and process assignments
-        #try:
-         #   assignments = self.fetch_and_process_assignments()
-        # except:
-            # assignments = None
-        
         all_uids = [i for i in range(len(self.commune_network.hotkeys))]
         miner_uids, valid_miner_names = self.commune_network.check_valis_or_miners(all_uids, repo_type="miner")
-        # miner_uids = [miner for miner in range(len(self.commune_network.hotkeys)) if miner not in validator_uids]
 
-        # if assignments is not None:
-        #     selected_miner_uids = self.get_selected_miner_uids(assignments)
-        # else:
-        #     if len(miner_uids) > 5:
-        #         selected_miner_uids = random.sample(miner_uids, 5)
-        #     else:
         selected_miner_uids = miner_uids
         print(selected_miner_uids)
         print(valid_miner_names)
@@ -252,18 +238,30 @@ class ModelValidator:
                 os.remove(gradient_path)
             else:
                 print(f"No gradients received from {miner_id}")
-
+        print(self.averaging_weights)
         normalization_factor = sum(self.averaging_weights)
-        # Create gradient updates
+        print(normalization_factor)
+        # # Create gradient updates
+        # accumulated_gradients = {}
+        # for _, ppx_score, gradients in valid_gradients:
+        #     ppx_weight = ppx_score/normalization_factor
+        #     for name, grad in gradients.items():
+        #         if name not in accumulated_gradients:
+        #             accumulated_gradients[name] = grad * ppx_weight
+        #         else:
+        #             accumulated_gradients[name] += grad * ppx_weight
+
         accumulated_gradients = {}
-        for _, ppx_score, gradients in valid_gradients:
-            ppx_weight = ppx_score/normalization_factor
+        normalization_factor = sum(self.scores)
+        print(normalization_factor)
+
+        for score in self.scores:
+            ppx_weight = score/normalization_factor
             for name, grad in gradients.items():
                 if name not in accumulated_gradients:
                     accumulated_gradients[name] = grad * ppx_weight
                 else:
                     accumulated_gradients[name] += grad * ppx_weight
-
         # Update the model
         self.update_model_weights(accumulated_gradients)
         print("Evaluating Averaged Loss + Perplexity")
