@@ -213,7 +213,8 @@ class ModelValidator:
                     f"perplexity_{miner_id}": perplexity
                 }
                 wandb.log(metrics)
-                
+                print(f'loss: {loss}, base_loss: {self.base_loss}')
+                print(f'perplexity: {perplexity}, base_loss: {self.base_perplexity}')
                 # define acceptable loss and perplexity
                 loss_diff_ratio = (loss - self.base_loss) / self.base_loss
                 is_loss_acceptable = loss < self.base_loss or loss_diff_ratio < 0.012 
@@ -253,7 +254,8 @@ class ModelValidator:
 
         accumulated_gradients = {}
         normalization_factor = sum(self.scores)
-        print(normalization_factor)
+        print("normalization_factor", normalization_factor)
+        print('scores', self.scores)
 
         for score in self.scores:
             ppx_weight = score/normalization_factor
