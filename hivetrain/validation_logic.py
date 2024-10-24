@@ -253,11 +253,11 @@ class ModelValidator:
         #             accumulated_gradients[name] += grad * ppx_weight
 
         accumulated_gradients = {}
-        normalization_factor = sum(self.scores)
+        normalization_factor = sum(self.scores.items())
         print("normalization_factor", normalization_factor)
-        print('scores', self.scores)
+        print('scores', self.scores.items())
 
-        for score in self.scores:
+        for score in self.scores.items():
             ppx_weight = score/normalization_factor
             for name, grad in gradients.items():
                 if name not in accumulated_gradients:
