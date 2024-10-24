@@ -346,6 +346,39 @@ class HFManager:
 
     def receive_gradients(self, miner_repo_id, weights_file_name="gradients.pt", path_only=False):
         try: #TODO Add some garbage collection.
+                       # Construct the file path in the HfFileSystem
+            file_path = f"{miner_repo_id}/{weights_file_name}"
+
+            # Check if the file exists
+            if not self.fs.exists(file_path):
+                print(f"No file '{weights_file_name}' found in repo '{miner_repo_id}'.")
+                return None
+
+            # Get file metadata
+            info = self.fs.info(file_path)
+
+            # Extract the last commit date
+            last_commit_info = info.get('last_commit')
+            if not last_commit_info:
+                print(f"No commit information available for '{weights_file_name}' in repo '{miner_repo_id}'.")
+                return None
+
+            last_modified = last_commit_info.date  # This is a datetime object
+            if not isinstance(last_modified, datetime):
+                print(f"Invalid date format for last commit of '{weights_file_name}' in repo '{miner_repo_id}'.")
+                return None
+            # Current UTC time
+            now = datetime.now(timezone.utc)
+
+            # Current UTC time
+            now = datetime.now(timezone.utc)
+
+            # Check if the file was modified within the last 24 hours
+            if now - last_modified > timedelta(hours=24):
+                print(
+                    f"Gradients file '{weights_file_name}' in repo '{miner_repo_id}' was not updated in the last 24 hours. Skipping"
+                )
+                return None
             # Download the gradients file from Hugging Face Hub
             weights_file_path = hf_hub_download(
                 repo_id=miner_repo_id, filename=weights_file_name, use_auth_token=True
