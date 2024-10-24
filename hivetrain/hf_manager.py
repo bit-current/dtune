@@ -3,7 +3,7 @@ import torch
 import hashlib
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from huggingface_hub import HfApi, Repository, HfFolder, hf_hub_download, scan_cache_dir
+from huggingface_hub import HfApi, Repository, HfFileSystem, hf_hub_download, scan_cache_dir
 import shutil
 import subprocess
 import warnings
@@ -29,6 +29,7 @@ class HFManager:
         averaged_model_repo_local=None,
         averaged_miner_assignment_repo_id=None,
         averaged_miner_assignment_repo_local=None,
+        fs = HfFileSystem(),
         device="cuda" if torch.cuda.is_available() else "cpu",
     ):
 
@@ -37,6 +38,7 @@ class HFManager:
         self.averaged_model_repo_id = averaged_model_repo_id
         self.hf_token = hf_token
         self.device = device
+        self.fs = fs
         self.gradient_repo_local = gradient_repo_local
         self.averaged_model_repo_local = averaged_model_repo_local
         self.averaged_miner_assignment_repo_local = averaged_miner_assignment_repo_local
@@ -393,43 +395,35 @@ class HFManager:
         self, miner_repo_id, weights_file_name="gradients.pt", path_only=False
     ):
         try:  # TODO Add some garbage collection.
+            # Construct the file path in the HfFileSystem
+            file_path = f"{miner_repo_id}/{weights_file_name}"
 
-            # Fetch file information
-            file_info = self.api.get_file_info(
-                repo_id=miner_repo_id, filename=weights_file_name
-            )
-
-            if not file_info:
+            # Check if the file exists
+            if not self.fs.exists(file_path):
                 print(f"No file '{weights_file_name}' found in repo '{miner_repo_id}'.")
                 return None
 
-            # Extract the last modified time
-            last_modified_str = (
-                file_info.lastModified
-            )  # This is typically in ISO 8601 format
-            if not last_modified_str:
-                print(
-                    f"Cannot determine last modified time for '{weights_file_name}' in repo '{miner_repo_id}'."
-                )
+            # Get file metadata
+            info = self.fs.info(file_path)
+
+            # Extract the last commit date
+            last_commit_info = info.get('last_commit')
+            if not last_commit_info:
+                print(f"No commit information available for '{weights_file_name}' in repo '{miner_repo_id}'.")
                 return None
 
-            # Parse the last modified time
-            try:
-                last_modified = datetime.fromisoformat(
-                    last_modified_str.replace("Z", "+00:00")
-                )
-            except ValueError as ve:
-                print(f"Error parsing last modified time: {ve}")
+            last_modified = last_commit_info.date  # This is a datetime object
+            if not isinstance(last_modified, datetime):
+                print(f"Invalid date format for last commit of '{weights_file_name}' in repo '{miner_repo_id}'.")
                 return None
-
             # Current UTC time
             now = datetime.now(timezone.utc)
 
             # Current UTC time
             now = datetime.now(timezone.utc)
 
-            # Check if the file was modified within the last 36 hours
-            if now - last_modified > timedelta(hours=12):
+            # Check if the file was modified within the last 24 hours
+            if now - last_modified > timedelta(hours=24):
                 print(
                     f"Gradients file '{weights_file_name}' in repo '{miner_repo_id}' was not updated in the last 36 hours. Skipping"
                 )
