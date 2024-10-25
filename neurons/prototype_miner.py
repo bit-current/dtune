@@ -25,6 +25,8 @@ from hivetrain.chain_manager import ChainMultiAddressStore
 from hivetrain.config import Configurator
 from hivetrain.dataset import SubsetFineWebEdu2Loader
 from hivetrain.hf_manager import HFManager
+from hivetrain.bitnet_models import convert_to_bitnet
+
 
 
 MODEL_NAME = "openai-community/gpt2"
@@ -132,21 +134,98 @@ class Miner:
                     )
         return False
 
+    def __init__(self, args):
+        self.args = args
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.setup_wandb()
+        print("WANDB set")
+        self.setup_bittensor()
+        print("WANDB bittensor")
+        self.setup_model_and_tokenizer()
+        print("Model and optimizer setup")
+        self.setup_data_loader()
+        print("Dataloader setup")
+        self.setup_optimizer()
+        print("Optimizer Setup")
+        self.hf_manager = HFManager(
+            gradient_repo_id=args.storage.gradient_repo,
+            averaged_model_repo_id=args.storage.averaged_model_repo_id,
+        )
+        self.last_pull_time = 0
+        self.last_check_time = 0
+        self.last_send_time = time.time()
+
+    def setup_wandb(self):
+        wandb.init(
+            project="distributed-training-v4-1-1-1",
+            entity="alizawahry1",
+            name=f"miner-{str(time.time())}",
+        )
+
+    def setup_bittensor(self):
+        CommuneNetwork.initialize(self.args)
+        set_seed(CommuneNetwork.my_uid)
+        self.address_store = ChainMultiAddressStore(
+            CommuneNetwork.client, CommuneNetwork.netuid, CommuneNetwork.keypair, self.args.module_name
+        )
+        try:
+            success = self.update_address_store()
+            if success:
+                print("Address store updated successfully")
+        except RuntimeError as e:
+            print(f"Failed to update address store: {str(e)}")
+
+    def update_address_store(self):
+        max_retries = 5
+        retry_delay = 5
+        attempt = 0
+        
+        while attempt < max_retries:
+            try:
+                current_address = self.address_store.retrieve_hf_repo(CommuneNetwork.my_uid)
+                if current_address != self.args.storage.gradient_repo:
+                    print(f"Storing new value: {self.args.storage.gradient_repo}")
+                    success = self.address_store.store_hf_repo(
+                        self.args.storage.gradient_repo
+                    )
+                    if not success:
+                        raise ConnectionError("Failed to store new address in the chain")
+                return True
+            except Exception as e:
+                attempt += 1
+                print(f"Attempt {attempt} failed: {str(e)}")
+                if attempt < max_retries:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    raise RuntimeError(
+                        f"Failed to update address store after {max_retries} attempts: {str(e)}"
+                    )
+        return False
+
     def setup_model_and_tokenizer(self):
         """
-        Sets up the model and tokenizer for training. Loads the specified transformer model and tokenizer
-        from the given path, with options for LoRA modifications if specified in the args.
-        The model and tokenizer are configured and moved to the appropriate device (e.g., GPU).
+        Sets up the model and tokenizer for training, now using BitNet architecture.
+        Loads the specified transformer model, converts it to BitNet, and applies LoRA if specified.
         """
-
         model_name = MODEL_NAME
         model_cache_dir = "./model_cache"
         os.makedirs(model_cache_dir, exist_ok=True)
+
+        # Load base model
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name, cache_dir=model_cache_dir
         )
+        
+        # Convert to BitNet
+        self.model = convert_to_bitnet(self.model)
+        print("Model converted to BitNet architecture")
+
+        # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        # Apply LoRA if specified
         if True:  # apply_lora
             config = LoraConfig(
                 use_dora=True,
@@ -156,7 +235,9 @@ class Miner:
                 lora_dropout=0.1,
             )
             self.model = get_peft_model(self.model, config)
+
         self.model.to(self.device)
+        print(f"Model moved to {self.device}")
 
     def setup_data_loader(self):
         self.loader = SubsetFineWebEdu2Loader(

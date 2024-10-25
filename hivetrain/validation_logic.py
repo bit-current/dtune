@@ -11,6 +11,7 @@ import math
 from tqdm import tqdm
 from huggingface_hub import HfApi
 
+from hivetrain.record import GeneRecordManager
 
 class ModelValidator:
     def __init__(
@@ -51,6 +52,22 @@ class ModelValidator:
         self.scores = {}
         self.normalized_scores = {}
         self.gradient_hashes = {}
+
+        self.gene_record_manager = GeneRecordManager()
+        self.api = HfApi()
+
+    def get_remote_gene_hash(self, repo_name: str) -> str:
+        try:
+            file_info = self.api.list_repo_files(repo_id=repo_name)
+            if "best_gene.json" in file_info:
+                file_details = [thing for thing in self.api.list_repo_tree(repo_id=repo_name) if thing.path=="best_gene.json"]
+                if file_details:
+                    return file_details[0].blob_id
+        except Exception as e:
+            logging.error(f"Error retrieving gene hash from Hugging Face: {str(e)}")
+        return ""
+
+
 
 
     def update_model_weights(self, weights):
@@ -172,27 +189,35 @@ class ModelValidator:
         # Fetch all gradients at once
         print("Fetching all gradients...")
         for miner_id in selected_miner_uids:
-            
-            #miner_hotkey = self.commune_network.hotkeys[miner_id]
             hf_repo = self.commune_network.names[miner_id]
+            miner_hotkey = self.commune_network.hotkeys[miner_id]  # Add this line
             
             print(f"Fetching repo: {hf_repo} for UID {miner_id}")
+            
+            # Replace the old hash check with these lines
+            remote_gene_hash = self.get_remote_gene_hash(hf_repo)
+            
+            if not remote_gene_hash:
+                print("No gene hash found, skipping miner")
+                continue
+                
+            if not self.gene_record_manager.should_download(miner_hotkey, remote_gene_hash):
+                print("Skipping UID as no new genes")
+                continue
+
             gradient_path = self.hf_manager.receive_gradients(hf_repo, path_only=True)
             if gradient_path is None:
                 print("Skipping UID as no registered repo")
                 continue
-            with open(gradient_path, "rb") as file:
-                gradient_hash = hashlib.sha256(file.read()).hexdigest()
 
-            try:
-                if gradient_hash == self.gradient_hashes[miner_id]:
-                    print("Skipping UID as no new weights")
-                    continue
-                else:
-                    self.gradient_hashes[miner_id] = gradient_hash
-            except KeyError:
-                self.gradient_hashes[miner_id] = gradient_hash
-
+            # Add this record
+            self.gene_record_manager.add_record(
+                miner_hotkey=miner_hotkey,
+                gene_hash=remote_gene_hash,
+                timestamp=time.time(),
+                performance=0.0
+            )
+            
             uid_gradient_paths[miner_id] = gradient_path
 
         if len(uid_gradient_paths) == 0:
@@ -239,6 +264,16 @@ class ModelValidator:
                 else:
                     self.scores[miner_id] = 0
                     print(f"Gradients from {miner_id} are invalid. Excluding from updates.")
+
+                miner_hotkey = self.commune_network.hotkeys[miner_id]
+                record = self.gene_record_manager.get_record(miner_hotkey)
+                if record:
+                    self.gene_record_manager.add_record(
+                        miner_hotkey=miner_hotkey,
+                        gene_hash=record['gene_hash'],
+                        timestamp=record['timestamp'],
+                        performance=perplexity
+                    )
 
                 self.model.load_state_dict(self.original_state_dict)
                 os.remove(gradient_path)

@@ -9,6 +9,7 @@ from hivetrain.dataset import SubsetFineWebEdu2Loader
 from hivetrain.validation_logic import ModelValidator
 from hivetrain.chain_manager import ChainMultiAddressStore
 from hivetrain.hf_manager import HFManager
+from hivetrain.bitnet_models import convert_to_bitnet
 from transformers import AdamW, AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 
@@ -44,30 +45,37 @@ class Validation:
         )
 
     def setup_model_and_tokenizer(self):
-        print("Setting up model and tokenizer...")
+        """
+        Sets up the model and tokenizer for training, now using BitNet architecture.
+        """
         model_name = MODEL_NAME
-        model_cache_dir = './model_cache'
+        model_cache_dir = "./model_cache"
         os.makedirs(model_cache_dir, exist_ok=True)
 
+        # Load base model
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            quantization_config=None,
-            cache_dir=model_cache_dir,
-            torch_dtype=torch.float32,
-            device_map="auto"
+            model_name, cache_dir=model_cache_dir
         )
+        
+        # Convert to BitNet
+        self.model = convert_to_bitnet(self.model)
+        print("Model converted to BitNet architecture")
+
+        # Rest remains the same
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.optimizer = AdamW(self.model.parameters(), lr=self.args.miner.learning_rate)
 
-        config = LoraConfig(
-            use_dora=True,
-            r=32,
-            lora_alpha=8,
-            target_modules="all-linear",
-            lora_dropout=0.1,
-        )
-        self.model = get_peft_model(self.model, config)
+        if True:  # apply_lora
+            config = LoraConfig(
+                use_dora=True,
+                r=32,
+                lora_alpha=8,
+                target_modules="all-linear",
+                lora_dropout=0.1,
+            )
+            self.model = get_peft_model(self.model, config)
+
+        self.model.to(self.device)
     
     def setup_data_loader(self):
         print("Setting up data loader...")

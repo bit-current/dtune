@@ -164,7 +164,7 @@ class CommuneNetwork:
                     print(f"Key: {cls.my_hotkey} is not registered on netuid {config.netuid}. Please register the hotkey before trying again")
                     exit()
             
-            cls.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+            cls.device = torch.device(config.device if config.device else "cpu")
 
             cls.base_scores = {}
         # Additional initialization logic here
