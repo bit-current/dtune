@@ -25,6 +25,7 @@ class HFManager:
         gradient_repo_id=None,#gradients HF
         averaged_model_repo_id=None,#averaged HF
         gradient_repo_local=None,#averaged local
+        fs = HfFileSystem(),
         averaged_model_repo_local=None,
         averaged_miner_assignment_repo_id = None,
         averaged_miner_assignment_repo_local = None,
@@ -35,6 +36,7 @@ class HFManager:
         self.gradient_repo_id = gradient_repo_id
         self.averaged_model_repo_id = averaged_model_repo_id
         self.hf_token = hf_token
+        self.fs = fs
         self.device = device
         self.gradient_repo_local = gradient_repo_local
         self.averaged_model_repo_local = averaged_model_repo_local
