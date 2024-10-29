@@ -283,26 +283,44 @@ class HFManager:
     def update_model(self, model, model_file_name="averaged_model.pt"):
         """
         Loads an updated model from a .pt file and updates the in-memory model's parameters.
+        Returns the original model if loading fails.
         """
         try:
             model_path = os.path.join(self.averaged_model_repo_local, model_file_name)
             if os.path.exists(model_path):
-                new_state_dict = torch.load(model_path, map_location=self.device)
-                temp_state_dict = model.state_dict()
-                temp_state_dict.update(new_state_dict)
-                # for name, param in model.named_parameters():
-                #     if name in model_state_dict:
-                #         param.data.copy_(model_state_dict[name])
-                model.load_state_dict(temp_state_dict)
-                model.train()
-                print(f"Model updated from local path: {model_path}")
-                return model
+                
+                # Check if file is empty
+                if os.path.getsize(model_path) == 0:
+                    print(f"Warning: {model_file_name} is empty. Using existing model.")
+                    return model
+                try:
+                    new_state_dict = torch.load(model_path, map_location=self.device)
+
+                     # Verify that new_state_dict contains parameters
+                    if not new_state_dict:
+                        print(f"Warning: {model_file_name} contains empty state dict. Using existing model.")
+                        return model
+                    
+                    temp_state_dict = model.state_dict()
+                    temp_state_dict.update(new_state_dict)
+
+                    # Verify parameter compatibility before loading
+                    if all(name in temp_state_dict for name, _ in model.named_parameters()):
+                        model.load_state_dict(temp_state_dict)
+                        model.train()
+                        print(f"Model updated from local path: {model_path}")
+                    else:
+                        print("Warning: Incompatible model parameters. Using existing model.")
+                        return model
+                except (RuntimeError, ValueError) as e:
+                    print(f"Error loading model weights: {e}. Using existing model.")
+                    return model
             else:
-                raise FileNotFoundError(f"{model_file_name} not found in the repository.")
-        except FileNotFoundError as e:
-            print(f"Failure to update model: {e}")
-        except Exception as er:
-            print("Attempting to load corrupt/wrong weights")
+                print(f"Warning: {model_file_name} not found in repository. Using existing model.")
+                return model
+        except Exception as e:
+            print(f"Unexpected error during model update: {str(e)}. Using existing model.")
+            return model
 
     def get_local_gradient_directory(self):
         """Return the local directory of the repository."""
